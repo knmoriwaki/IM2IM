@@ -1,0 +1,6 @@
+__pycache__/
+output/
+training_data/
+val_data/
+test_data/
+tmp/
