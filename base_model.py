@@ -4,6 +4,8 @@ from collections import OrderedDict
 from abc import ABC, abstractmethod
 from torch.optim import lr_scheduler
 
+from utils import *
+
 def get_scheduler(optimizer, opt):
     if opt.lr_policy == 'linear':
         def lambda_rule(epoch):
@@ -26,9 +28,12 @@ class BaseModel(ABC):
     def __init__(self, opt):
         
         self.opt = opt
-        self.gpu_ids = opt.gpu_ids
         self.isTrain = opt.isTrain
-        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')  # get device name: CPU or GPU
+        if len(opt.gpu_ids) == 1:
+            self.gpu_ids = [int(opt.gpu_ids)]
+        else:
+            self.gpu_ids = [ int(i) for i in opt.gpu_ids.split(',')]
+        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids[0] != -1 else torch.device('cpu')  # get device name: CPU or GPU
         self.save_dir = os.path.join(opt.output_dir, "checkpoints")  # save all the checkpoints to save_dir
         
         torch.backends.cudnn.benchmark = True
@@ -207,3 +212,8 @@ class BaseModel(ABC):
             if net is not None:
                 for param in net.parameters():
                     param.requires_grad = requires_grad
+
+    def save_test_image(self, opt, fname, overwrite=False):
+        with torch.no_grad():
+            self.forward()
+            save_image(self.fake_B, fname, opt.norm, overwrite=overwrite)

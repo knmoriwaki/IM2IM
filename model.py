@@ -140,16 +140,19 @@ class UnetSkipConnectionBlock(nn.Module):
     X -------------------identity----------------------
     |-- downsampling -- |submodule| -- upsampling --|
     """
-
     def __init__(self, outer_nc, inner_nc, input_nc=None,
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
         super().__init__()
 
+        #kw = 5
+        #padw = "same"
+        kw = 4
+        padw = 1
         self.outermost = outermost
         if input_nc is None:
             input_nc = outer_nc
-        downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=4,
-                             stride=2, padding=1, bias=True)
+        downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=kw,
+                             stride=2, padding=padw, bias=True)
         downrelu = nn.LeakyReLU(0.2, True)
         downnorm = nn.BatchNorm2d(inner_nc)
         uprelu = nn.ReLU(True)
@@ -157,22 +160,22 @@ class UnetSkipConnectionBlock(nn.Module):
 
         if outermost:
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
-                                        kernel_size=4, stride=2,
-                                        padding=1)
+                                        kernel_size=kw, stride=2,
+                                        padding=padw)
             down = [downconv]
             up = [uprelu, upconv, nn.Tanh()]
             model = down + [submodule] + up
         elif innermost:
             upconv = nn.ConvTranspose2d(inner_nc, outer_nc,
-                                        kernel_size=4, stride=2,
-                                        padding=1, bias=True)
+                                        kernel_size=kw, stride=2,
+                                        padding=padw, bias=True)
             down = [downrelu, downconv]
             up = [uprelu, upconv, upnorm]
             model = down + up
         else:
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
-                                        kernel_size=4, stride=2,
-                                        padding=1, bias=True)
+                                        kernel_size=kw, stride=2,
+                                        padding=padw, bias=True)
             down = [downrelu, downconv, downnorm]
             up = [uprelu, upconv, upnorm]
 
@@ -194,6 +197,8 @@ class NLayerDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=3):
         super().__init__()
 
+        #kw = 5
+        #padw = "same"
         kw = 4
         padw = 1
         sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
@@ -224,20 +229,6 @@ class NLayerDiscriminator(nn.Module):
         return self.model(input)
 
 
-def Activation(activation):
-    if activation == "lrelu":
-        return nn.LeakyReLU()
-    elif activation == "relu":
-        return nn.ReLU()
-    elif activation == "sigmoid":
-        return nn.Sigmoid()
-    elif activation == "tanh":
-        return nn.Tanh()
-    else:
-        print("ERROR: Unknown activation function", file=sys.stderr)
-        sys.exit(1)
-
-
 class Pix2PixModel(BaseModel):
 
     def __init__(self, opt):
@@ -251,9 +242,9 @@ class Pix2PixModel(BaseModel):
         else:
             self.model_names = [ "G" ]
 
-        self.netG = define_G(opt, gpu_ids=[0])
+        self.netG = define_G(opt, gpu_ids=self.gpu_ids)
         if self.isTrain:
-            self.netD = define_D(opt, gpu_ids=[0])
+            self.netD = define_D(opt, gpu_ids=self.gpu_ids)
 
             self.criterionGAN = GANLoss('vanilla').to(self.device)
             self.criterionL1 = torch.nn.L1Loss()
@@ -271,7 +262,7 @@ class Pix2PixModel(BaseModel):
         self.fake_B = self.netG(self.real_A) 
 
     def backward_D(self):
-        fake_AB = torch.cat((self.real_A, self.real_B), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB.detach())
         self.loss_D_fake = self.criterionGAN(pred_fake, False)
 
@@ -305,18 +296,6 @@ class Pix2PixModel(BaseModel):
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # update G's weights
     
-    def get_current_losses(self):
-   
-        errors_ret = OrderedDict()
-        for name in self.loss_names:
-            if isinstance(name, str):
-                errors_ret[name] = float(getattr(self, 'loss_' + name))  # float(...) works for both scalar tensor and float number
-        return errors_ret
-    
-    def save_test_image(self, opt, fname, overwrite=False):
-        with torch.no_grad():
-            self.forward()
-            save_image(self.fake_B, fname, opt.norm, overwrite=overwrite)
     
     
     

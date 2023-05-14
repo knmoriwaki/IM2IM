@@ -8,7 +8,6 @@ import torch.nn.functional as F
 
 from model import MyModel
 
-from torchinfo import summary
 from utils import *
 
 parser = argparse.ArgumentParser(description="")
@@ -55,6 +54,8 @@ parser.add_argument("--lambda_L1", dest="lambda_L1", type=float, default=100.0, 
 
 parser.add_argument("--print_freq", dest="print_freq", type=int, default=100, help="frequency of showing training results on console")
 parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, default=5000, help="frequency of saving the latest results")
+parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, default=10000, help="frequency of saving the generated image")
+parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 args = parser.parse_args()
 
 def main():
@@ -65,13 +66,13 @@ def main():
     else:
         test(device)
 
-def load_data(prefix_list, device="cuda:0"):
+def load_data(path, prefix_list, device="cuda:0"):
 
     start_time = time.time()
-    print("# loading data from {}".format(args.data_dir), end=" ")
+    print("# loading data from {}".format(path), end=" ")
     data_list = []
     for label in [ "z1.3_ha", "z2.0_oiii" ]:
-        fnames = [ "{}/{}_{}.fits".format(args.data_dir, p, label) for p in prefix_list ]
+        fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
         data = load_fits_image(fnames, norm=args.norm, device=device)
         data_list.append(data)
     source = data_list[0] + data_list[1]
@@ -83,7 +84,7 @@ def train(device):
 
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
-    source, target = load_data(prefix_list, device=None)
+    source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
 
@@ -104,8 +105,6 @@ def train(device):
         for i, (src, tgt) in enumerate(train_loader):
             total_iters += 1
 
-            src.to(device)
-            tgt.to(device)
             model.set_input([src,tgt])
             model.optimize_parameters() # calculate loss functions, get gradients, update network weights
             if total_iters == 1:
@@ -120,6 +119,19 @@ def train(device):
                 print('# saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
                 model.save_networks('iter_{:d}'.format(total_iters))
                 model.save_networks('latest')
+
+            if total_iters % args.save_image_freq == 0:
+                if args.save_image_irun >= 0:
+                    src_ref = torch.unsqueeze(source[args.save_image_irun], 0)
+                    tgt_ref = torch.unsqueeze(target[args.save_image_irun], 0)
+                    model.set_input([src_ref, tgt_ref])
+                    fname = "{}/{}_iter_{:d}.fits".format(args.output_dir, prefix_list[args.save_image_irun], total_iters)
+                    model.save_test_image(args, fname, overwrite=True) 
+                else:
+                    fname = "{}/iter_{:d}.fits".format(args.output_dir, total_iters)
+                    visuals = model.get_current_visuals()
+                    save_image(visuals["fake_B"][0], fname, args.norm, overwrite=True)
+                print("# save {}".format(fname))
             
             del src, tgt
             torch.cuda.empty_cache()
@@ -131,7 +143,7 @@ def test(device):
 
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
-    source, target = load_data(prefix_list, device=device)
+    source, target = load_data(args.test_dir, prefix_list, device=device)
 
     ### load model ###
     model = MyModel(args)
@@ -144,8 +156,9 @@ def test(device):
         src = torch.unsqueeze(src, 0)
         tgt = torch.unsqueeze(tgt, 0)
         if args.load_iter > 0: suf += "iter{:d}".format(args.load_iter)
-        fname = "{}/test/gen_{}.fits".format(args.output_dir, p) 
         model.set_input([src,tgt])
+
+        fname = "{}/test/gen_{}.fits".format(args.output_dir, p) 
         model.save_test_image(args, fname, overwrite=True)
         print("# save {}".format(fname))
 

@@ -1,6 +1,6 @@
 # conditional GAN
 
-cGAN model based on ![this](https://github.com/eriklindernoren/PyTorch-GAN)
+cGAN model based on [pix2pix (Isola et al. 2016)](https://github.com/eriklindernoren/PyTorch-GAN)
 
 ## Requirement
 
@@ -9,7 +9,6 @@ cGAN model based on ![this](https://github.com/eriklindernoren/PyTorch-GAN)
 Install the following libraries with `pip`.
 - torch==1.12.0
 - torchvision==0.13.0
-- torchinfo
 - tqdm
 - astropy
 
@@ -22,22 +21,27 @@ Deafault data directories:
 
 ## How to Run
 
+Training
 ```
-python main.py --mode train
-python main.py --mode test
+python main.py --isTrain 
 ```
-or
 
+Test
+```
+python main.py
+```
+
+Run both training and test code by 
 ```
 ./run.sh
 ```
 You can change the parameters in run.sh.
 
 
-To check the model performance, run plot.ipynb. Output examples:
+Use plot.ipynb to check the model performance. Output examples:
 ![loss](https://github.com/knmoriwaki/MergerTree-to-SFR/blob/images/loss.png) ![test](https://github.com/knmoriwaki/MergerTree-to-SFR/blob/images/test.png)
 
-You can check the model structure in the output file ./tmp/out_{model_name}.log. Also see model.py for details. 
+You can check the model structure in the output file ./tmp/out_{model_name}.log. 
 
 
 - Input shape: (batch size, 1, pixel size, pixel size)
@@ -48,16 +52,9 @@ You can check the model structure in the output file ./tmp/out_{model_name}.log.
 ## References
 
 
-## Current Issues
+## Known Issues
 
-- If you encounter CUDNN_STATUS_EXECUTION_FAILED:
-I don't know the details, but it is solved when I re-launch the console.
-
-- Somehow epoch_count is not set to the default value in add_argument, so you should manually set it.
-
-
-
-
-
+- An error CUDNN_STATUS_EXECUTION_FAILED:
+solved when I re-launch the console.
 
 
