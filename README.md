@@ -31,8 +31,16 @@ Run both training and test code by
 You can change the parameters in run.sh.
 
 
-Use plot.ipynb to check the model performance. Output examples:
-![loss](loss.png) ![test](test_image.png) ![iter](training_iter.png)
+Use plot.ipynb to check the model performance. 
+
+Loss function:
+![loss](loss.png) 
+
+Test output:
+![test](test_image.png) 
+
+Images generated during training:
+![iter](training_iter.png)
 
 You can check the model structure in the output file ./tmp/out_{model_name}.log. 
 
