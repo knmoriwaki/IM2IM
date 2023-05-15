@@ -32,7 +32,7 @@ You can change the parameters in run.sh.
 
 
 Use plot.ipynb to check the model performance. Output examples:
-![loss](loss.png) ![test](https://github.com/knmoriwaki/MergerTree-to-SFR/test_image.png)
+![loss](loss.png) ![test](test_image.png)
 
 You can check the model structure in the output file ./tmp/out_{model_name}.log. 
 
