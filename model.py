@@ -145,7 +145,7 @@ class UnetSkipConnectionBlock(nn.Module):
         super().__init__()
 
         #kw = 5
-        #padw = "same"
+        #padw = "same" #padding="same" is not supported for strided convolutions
         kw = 4
         padw = 1
         self.outermost = outermost
@@ -198,7 +198,7 @@ class NLayerDiscriminator(nn.Module):
         super().__init__()
 
         #kw = 5
-        #padw = "same"
+        #padw = "same" #padding="same" is not supported for strided convolutions
         kw = 4
         padw = 1
         sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
@@ -221,7 +221,8 @@ class NLayerDiscriminator(nn.Module):
             nn.LeakyReLU(0.2, True)
         ]
 
-        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]  # output 1 channel prediction map
+        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]  # output 1 channel prediction map 
+        # note Sigmoid function for vanilla GAN is included in the loss fuction BCEWithLogitsLoss.
         self.model = nn.Sequential(*sequence)
 
     def forward(self, input):
@@ -247,7 +248,7 @@ class Pix2PixModel(BaseModel):
             self.netD = define_D(opt, gpu_ids=self.gpu_ids)
 
             self.criterionGAN = GANLoss('vanilla').to(self.device)
-            self.criterionL1 = torch.nn.L1Loss()
+            self.criterionL1 = torch.nn.L1Loss(reduction="mean")
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)

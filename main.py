@@ -99,7 +99,7 @@ def train(device):
     ### training ###
     total_iters = args.load_iter if args.load_iter > 0 else 0
     start_time = time.time()
-    for epoch in range(args.epoch_count, args.n_epochs + args.n_epochs_decay + 1):
+    for epoch in range(args.epoch_count + 1, args.n_epochs + args.n_epochs_decay + 1):
         epoch_start_time = time.time()
         #model.update_learning_rate()
         for i, (src, tgt) in enumerate(train_loader):
@@ -138,6 +138,8 @@ def train(device):
 
         print('# End of epoch %d / %d \t Time Taken: %d sec' % (epoch, args.n_epochs + args.n_epochs_decay, time.time() - epoch_start_time))
 
+        print('# saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
+        model.save_networks('latest')
 
 def test(device):
 

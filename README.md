@@ -12,13 +12,6 @@ Install the following libraries with `pip`.
 - tqdm
 - astropy
 
-## Dataset Preparation
-
-Deafault data directories:
-- ./training_data
-- ./validation_data
-- ./test_data
-
 ## How to Run
 
 Training
@@ -44,9 +37,9 @@ Use plot.ipynb to check the model performance. Output examples:
 You can check the model structure in the output file ./tmp/out_{model_name}.log. 
 
 
-- Input shape: (batch size, 1, pixel size, pixel size)
+- Input shape: (batch_size, input_nc, input_dim, input_dim)
 
-- Output shape: (batch size, 1, pixel size, pixel size)
+- Output shape: (batch_size, output_nc, output_dim, output_dim)
 
 
 ## References
