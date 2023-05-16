@@ -34,13 +34,13 @@ You can change the parameters in run.sh.
 Use plot.ipynb to check the model performance. 
 
 Loss function:  
-![loss](image/loss.png) 
+![loss](/image/loss.png) 
 
 Test output:  
-![test](image/test_image.png) 
+![test](/image/test_image.png) 
 
 Images generated during training:  
-![iter](image/training_iter.png)
+![iter](/image/training_iter.png)
 
 You can check the model structure in the output file at `./tmp`
 
