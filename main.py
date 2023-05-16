@@ -76,14 +76,14 @@ def load_data(path, prefix_list, device="cuda:0"):
         data = load_fits_image(fnames, norm=args.norm, device=device)
         data_list.append(data)
     source = data_list[0] + data_list[1]
-    target = data_list[0]
+    target = data_list[1] ## train to output oiii data
     print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
     return source, target
     
 def train(device):
 
     ### load data ###
-    prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
+    prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irun, i, j) for irun in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
     source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)

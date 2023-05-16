@@ -19,7 +19,8 @@ def load_fits_image(fnames, norm=1.0, device="cuda:0"):
 
     data_list = []
     for fname in fnames:
-        img = fits.open(fname)[0].data / norm
+        hdul = fits.open(fname)
+        img = hdul[0].data / norm
         size = img.shape
         img = img.reshape(1, 1, size[0], size[1])
         data_list.append(img)

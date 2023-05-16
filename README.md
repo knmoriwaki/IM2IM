@@ -1,6 +1,6 @@
 # conditional GAN
 
-cGAN model based on [pix2pix (Isola et al. 2016)](https://github.com/eriklindernoren/PyTorch-GAN)
+cGAN model based on pix2pix [(Isola et al. 2016)](https://github.com/eriklindernoren/PyTorch-GAN)
 
 ## Requirement
 
@@ -34,15 +34,15 @@ You can change the parameters in run.sh.
 Use plot.ipynb to check the model performance. 
 
 Loss function:  
-![loss](loss.png) 
+![loss](image/loss.png) 
 
 Test output:  
-![test](test_image.png) 
+![test](image/test_image.png) 
 
 Images generated during training:  
-![iter](training_iter.png)
+![iter](image/training_iter.png)
 
-You can check the model structure in the output file ./tmp/out_{model_name}.log. 
+You can check the model structure in the output file at `./tmp`
 
 
 - Input shape: (batch_size, input_nc, input_dim, input_dim)
