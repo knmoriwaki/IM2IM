@@ -40,7 +40,7 @@ Test output:
 ![test](/image/test_image.png) 
 
 Images generated during training:  
-![iter](/image/training_iter.png)
+![iter](image/training_iter.png)
 
 You can check the model structure in the output file at `./tmp`
 
