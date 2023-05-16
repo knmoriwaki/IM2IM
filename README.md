@@ -34,7 +34,7 @@ You can change the parameters in run.sh.
 Use plot.ipynb to check the model performance. 
 
 Loss function:  
-![loss](https://github.com/knmoriwaki/IM2IM/blob/image/loss.png) 
+![loss](https://github.com/knmoriwaki/IM2IM/blob/image/main/loss.png) 
 
 Test output:  
 ![test](/image/test_image.png) 
