@@ -138,8 +138,8 @@ def train(device):
 
         print('# End of epoch %d / %d \t Time Taken: %d sec' % (epoch, args.n_epochs + args.n_epochs_decay, time.time() - epoch_start_time))
 
-        print('# saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
-        model.save_networks('latest')
+    print('# saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
+    model.save_networks('latest')
 
 def test(device):
 
