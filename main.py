@@ -86,7 +86,7 @@ def load_data(path, prefix_list, device="cuda:0"):
 def train(device):
 
     ### load data ###
-    prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(2) for i in range(args.nrun) for j in range(args.nindex) ]
+    prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(1) for i in range(args.nrun) for j in range(args.nindex) ]
     source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
@@ -105,7 +105,9 @@ def train(device):
     start_time = time.time()
     for epoch in range(args.epoch_count, args.n_epochs + args.n_epochs_decay + 1):
         epoch_start_time = time.time()
-        model.update_learning_rate()
+        if epoch != args.epoch_count:
+            model.update_learning_rate()
+
         for i, (src, tgt) in enumerate(train_loader):
             total_iters += 1
 
