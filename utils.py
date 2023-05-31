@@ -61,7 +61,7 @@ def my_init(seed=0, gpu_ids=-1):
     return device
 
 def print_loss_names(opt, losses):
-    message = '#iter iter*batch time'
+    message = '#iter iter*batch epoch time'
 
     for k, v in losses.items():
         message += ' loss_%s' % k
@@ -71,8 +71,8 @@ def print_loss_names(opt, losses):
     with open(log_name, "w") as log_file:
         log_file.write('%s\n' % message)  # save the messag
 
-def print_current_losses(opt, total_iters, total_iters_b, losses, t):
-    message = '%d %d %.3f' % (total_iters, total_iters_b, t)
+def print_current_losses(opt, total_iters, total_iters_b, epoch, losses, t):
+    message = '%d %d %.3f %.3f' % (total_iters, total_iters_b, epoch, t)
 
     for k, v in losses.items():
         message += ' %.3f' % v

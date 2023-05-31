@@ -1,6 +1,7 @@
 import sys
 import argparse
 import time
+import json
 
 import torch
 import torch.nn as nn
@@ -43,8 +44,8 @@ parser.add_argument("--dropout", dest="dropout", type=float, default=0.5, help="
 # training parameters #
 parser.add_argument("--batch_size", dest="batch_size", type=int, default=64, help="batch size")
 parser.add_argument("--n_epochs", dest="n_epochs", type=int, default=100, help="training epoch")
-parser.add_argument('--n_epochs_decay', dest="n_epochs_decay", type=int, default=0, help='number of epochs to linearly decay learning rate to zero')
-parser.add_argument("--epoch_count", dest="epoch_count", type=int, default=0, help="the starting epoch count")
+parser.add_argument('--n_epochs_decay', dest="n_epochs_decay", type=int, default=100, help='number of epochs to linearly decay learning rate to zero')
+parser.add_argument("--epoch_count", dest="epoch_count", type=int, default=1, help="the starting epoch count")
 parser.add_argument("--lr", dest="lr", type=float, default=0.0002, help="learning rate")
 parser.add_argument('--lr_policy', dest="lr_policy", type=str, default='linear', help='learning rate policy. [linear | step | plateau | cosine]')
 parser.add_argument('--lr_decay_iters', dest="lr_decay_iters", type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
@@ -62,6 +63,8 @@ def main():
 
     device = my_init(seed=0, gpu_ids="0")
     if args.isTrain:
+        with open("{}/params.json".format(args.output_dir), mode="a") as f:
+            json.dump(args.__dict__, f)
         train(device)
     else:
         test(device)
@@ -83,7 +86,7 @@ def load_data(path, prefix_list, device="cuda:0"):
 def train(device):
 
     ### load data ###
-    prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irun, i, j) for irun in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
+    prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(2) for i in range(args.nrun) for j in range(args.nindex) ]
     source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
@@ -97,11 +100,12 @@ def train(device):
     model.setup(args, verbose=True) #set verbose=True to show the model architecture
 
     ### training ###
+    niters_per_epoch = len(train_loader)
     total_iters = args.load_iter if args.load_iter > 0 else 0
     start_time = time.time()
-    for epoch in range(args.epoch_count + 1, args.n_epochs + args.n_epochs_decay + 1):
+    for epoch in range(args.epoch_count, args.n_epochs + args.n_epochs_decay + 1):
         epoch_start_time = time.time()
-        #model.update_learning_rate()
+        model.update_learning_rate()
         for i, (src, tgt) in enumerate(train_loader):
             total_iters += 1
 
@@ -113,7 +117,8 @@ def train(device):
             if total_iters % args.print_freq == 0:    # print training losses and save logging information to the disk
                 losses = model.get_current_losses()
                 t_now = time.time() - start_time
-                print_current_losses(args, total_iters, total_iters*args.batch_size, losses, t_now)
+                epoch_now = float( total_iters ) / float( niters_per_epoch )
+                print_current_losses(args, total_iters, total_iters*args.batch_size, epoch_now, losses, t_now)
 
             if total_iters % args.save_latest_freq == 0:   # cache our latest model every <save_latest_freq> iterations
                 print('# saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
