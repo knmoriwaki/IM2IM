@@ -56,7 +56,7 @@ def my_init(seed=0, gpu_ids=-1):
     np.random.seed(seed)
     torch.manual_seed(seed)
     #torch.use_deterministic_algorithms(True)
-    os.environ["CUBLAS_WORKSPACE_CONFIG"]=":16:8" 
+    #os.environ["CUBLAS_WORKSPACE_CONFIG"]=":16:8" 
 
     return device
 

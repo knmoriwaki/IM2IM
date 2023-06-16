@@ -86,8 +86,8 @@ def train(device):
     ### define model ###
     model = MyModel(args)
     model.setup(args, verbose=True) #set verbose=True to show the model architecture
-    #summary(model.netG, input_size=(args.batch_size, np.shape(source)[1], np.shape(source)[2], np.shape(source)[3]), col_names=["output_size", "num_params"])
-    #summary(model.netD, input_size=(args.batch_size, np.shape(source)[1]+np.shape(target)[1], np.shape(source)[2], np.shape(source)[3]), col_names=["output_size", "num_params"])
+    summary(model.netG, input_size=(args.batch_size, args.input_nc, args.input_dim, args.input_dim), col_names=["output_size", "num_params"])
+    summary(model.netD, input_size=(args.batch_size, args.input_nc+args.output_nc, args.input_dim, args.input_dim), col_names=["output_size", "num_params"])
 
     ### load data ###
     prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
