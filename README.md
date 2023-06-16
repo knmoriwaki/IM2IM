@@ -55,7 +55,7 @@ You can check the model structure in the output file at `./tmp`
 
 ## Known Issues
 
-- RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
-solved when I re-launch the console.
+- RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR:
+comment out `torch.use_deterministic_algorithms(True)` ([link](https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html))
  
 

@@ -15,8 +15,7 @@ total_epochs=$(( n_epochs + n_epochs_decay ))
 lambda=1000
 
 #name=debug
-name=${model}
-name=test_${model}_${batch_size}_${total_epochs}
+name=${model}_${batch_size}_${total_epochs}
 
 output_dir=./output/${name}
 
@@ -26,9 +25,9 @@ mkdir -p ./tmp
 
 norm=2.0e-7
 
-python main.py --name $name --isTrain --data_dir $data_dir --val_dir $val_dir --output_dir $output_dir --nrun 300 --nindex 100 --model $model --batch_size $batch_size --n_epochs $n_epochs --n_epochs_decay $n_epochs_decay --print_freq 1 --save_latest_freq 10000 --save_image_freq 1000 --norm $norm --lambda_L1 $lambda #> ./tmp/out_${name}.log
+python main.py --name $name --isTrain --data_dir $data_dir --val_dir $val_dir --output_dir $output_dir --nrun 32 --nindex 1 --model $model --batch_size $batch_size --n_epochs $n_epochs --n_epochs_decay $n_epochs_decay --print_freq 1 --save_latest_freq 10000 --save_image_freq 1000 --norm $norm --lambda_L1 $lambda 
 
-python main.py --name $name --test_dir $test_dir --output_dir $output_dir --nrun 100 --model $model --load_iter -1 --norm $norm #> ./tmp/test_${name}.log
+python main.py --name $name --test_dir $test_dir --output_dir $output_dir --nrun 100 --model $model --load_iter -1 --norm $norm 
 
 
 
