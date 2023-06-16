@@ -7,6 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torchinfo import summary
+
 from model import MyModel
 
 from utils import *
@@ -33,13 +35,9 @@ parser.add_argument("--output_nc", dest="output_nc", type=int, default=1, help="
 parser.add_argument("--input_dim", dest="input_dim", type=int, default=256, help="the number of input pixels along x/y axis")
 parser.add_argument("--output_dim", dest="output_dim", type=int, default=256, help="the number of output pixels along x/y axis")
 
-parser.add_argument("--d_model", dest="d_model", type=int, default=64, help="the number of expected features in the encoder/decoder inputs")
+parser.add_argument("--hidden_dim_G", dest="hidden_dim_G", type=int, default=64, help="the number of expected features in the first layer of the generator")
+parser.add_argument("--hidden_dim_D", dest="hidden_dim_D", type=int, default=64, help="the number of expected features in the first layer of the discriminator")
 parser.add_argument("--dropout", dest="dropout", type=float, default=0.5, help="dropout rate")
-#parser.add_argument("--nhead", dest="nhead", type=int, default=8, help="the number of heads in the multiheadattention models")
-#parser.add_argument("--num_layers", dest="num_layers", type=int, default=6, help="the number of sub-encoder-layers in the encoder")
-#parser.add_argument("--dim_feedforward", dest="dim_feedforward", type=int, default=1024, help="the dimension of the feedforward network model")
-#parser.add_argument("--activation", dest="activation", type=str, default="relu", help="the activation function")
-#parser.add_argument("--last_activation", dest="last_activation", type=str, default="tanh", help="the activation function")
 
 # training parameters #
 parser.add_argument("--batch_size", dest="batch_size", type=int, default=64, help="batch size")
@@ -51,7 +49,7 @@ parser.add_argument('--lr_policy', dest="lr_policy", type=str, default='linear',
 parser.add_argument('--lr_decay_iters', dest="lr_decay_iters", type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
 parser.add_argument("--beta1", dest="beta1", type=float, default=0.5, help="beta1 of Adam optimizer")
 
-parser.add_argument("--lambda_L1", dest="lambda_L1", type=float, default=100.0, help="weight for L1 loss in GAN")
+parser.add_argument("--lambda_L1", dest="lambda_L1", type=float, default=10.0, help="weight for L1 loss in GAN")
 
 parser.add_argument("--print_freq", dest="print_freq", type=int, default=100, help="frequency of showing training results on console")
 parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, default=5000, help="frequency of saving the latest results")
@@ -61,7 +59,7 @@ args = parser.parse_args()
 
 def main():
 
-    device = my_init(seed=0, gpu_ids="0")
+    device = my_init(seed=0, gpu_ids=args.gpu_ids[0])
     if args.isTrain:
         with open("{}/params.json".format(args.output_dir), mode="a") as f:
             json.dump(args.__dict__, f)
@@ -85,8 +83,14 @@ def load_data(path, prefix_list, device="cuda:0"):
     
 def train(device):
 
+    ### define model ###
+    model = MyModel(args)
+    model.setup(args, verbose=True) #set verbose=True to show the model architecture
+    #summary(model.netG, input_size=(args.batch_size, np.shape(source)[1], np.shape(source)[2], np.shape(source)[3]), col_names=["output_size", "num_params"])
+    #summary(model.netD, input_size=(args.batch_size, np.shape(source)[1]+np.shape(target)[1], np.shape(source)[2], np.shape(source)[3]), col_names=["output_size", "num_params"])
+
     ### load data ###
-    prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(1) for i in range(args.nrun) for j in range(args.nindex) ]
+    prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
     source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
@@ -94,10 +98,6 @@ def train(device):
     print("# batch_size: ", args.batch_size)
     print("# source data: ", np.shape(source))
     print("# target data: ", np.shape(target))
-
-    ### define model ###
-    model = MyModel(args)
-    model.setup(args, verbose=True) #set verbose=True to show the model architecture
 
     ### training ###
     niters_per_epoch = len(train_loader)

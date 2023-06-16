@@ -45,8 +45,9 @@ def define_G(opt, gpu_ids=[]):
     G = UnetGenerator(
             input_nc = opt.input_nc, 
             output_nc = opt.output_nc, 
-            ngf = opt.d_model, 
-            dropout = opt.dropout
+            ngf = opt.hidden_dim_G, 
+            dropout = opt.dropout,
+            n_layers=7
         )
     return init_net(G, gpu_ids)
 
@@ -54,7 +55,7 @@ def define_D(opt, gpu_ids=[]):
 
     D = NLayerDiscriminator(
             input_nc = opt.input_nc + opt.output_nc,
-            ndf = opt.d_model,
+            ndf = opt.hidden_dim_D,
             n_layers = 3
             )
 
@@ -122,13 +123,16 @@ class GANLoss(nn.Module):
 
 class UnetGenerator(nn.Module):
 
-    def __init__(self, input_nc, output_nc, ngf, dropout):
+    def __init__(self, input_nc, output_nc, ngf, dropout, n_layers=5):
         super().__init__()
 
-        unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, innermost=True)
-        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block)
-        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block)
-        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block)
+        nf_mult = min(2 ** (n_layers-1), 8)
+        nf_mult_prev = min(2 ** (n_layers-2), 8)
+        unet_block = UnetSkipConnectionBlock(ngf * nf_mult_prev, ngf * nf_mult, input_nc=None, innermost=True)
+        for n in range(1, n_layers-1):
+            nf_mult = nf_mult_prev
+            nf_mult_prev = min(2 ** (n_layers - n - 2), 8)
+            unet_block = UnetSkipConnectionBlock(ngf * nf_mult_prev, ngf * nf_mult, input_nc=None, submodule=unet_block)
         self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True)
 
     def forward(self, input):
@@ -144,10 +148,9 @@ class UnetSkipConnectionBlock(nn.Module):
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
         super().__init__()
 
-        #kw = 5
         #padw = "same" #padding="same" is not supported for strided convolutions
         kw = 4
-        padw = 1
+        padw = 1 
         self.outermost = outermost
         if input_nc is None:
             input_nc = outer_nc
@@ -194,17 +197,17 @@ class UnetSkipConnectionBlock(nn.Module):
 
 class NLayerDiscriminator(nn.Module):
 
-    def __init__(self, input_nc, ndf=64, n_layers=3):
+    def __init__(self, input_nc, ndf=64, n_layers=5):
         super().__init__()
 
-        #kw = 5
-        #padw = "same" #padding="same" is not supported for strided convolutions
-        kw = 4
-        padw = 1
+        #padw = "same" is not supported for strided convolutions
+        kw = 5
+        padw = 2
         sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
+
         nf_mult = 1
         nf_mult_prev = 1
-        for n in range(1, n_layers):  # gradually increase the number of filters
+        for n in range(1, n_layers-2):  # gradually increase the number of filters
             nf_mult_prev = nf_mult
             nf_mult = min(2 ** n, 8)
             sequence += [
@@ -213,16 +216,9 @@ class NLayerDiscriminator(nn.Module):
                 nn.LeakyReLU(0.2, True)
             ]
 
-        nf_mult_prev = nf_mult
-        nf_mult = min(2 ** n_layers, 8)
-        sequence += [
-            nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=1, padding=padw, bias=True),
-            nn.BatchNorm2d(ndf * nf_mult),
-            nn.LeakyReLU(0.2, True)
-        ]
-
         sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]  # output 1 channel prediction map 
         # note Sigmoid function for vanilla GAN is included in the loss fuction BCEWithLogitsLoss.
+
         self.model = nn.Sequential(*sequence)
 
     def forward(self, input):
@@ -249,6 +245,7 @@ class Pix2PixModel(BaseModel):
 
             self.criterionGAN = GANLoss('vanilla').to(self.device)
             self.criterionL1 = torch.nn.L1Loss(reduction="mean")
+
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
@@ -270,7 +267,7 @@ class Pix2PixModel(BaseModel):
         real_AB = torch.cat((self.real_A, self.real_B), 1)
         pred_real = self.netD(real_AB)
         self.loss_D_real = self.criterionGAN(pred_real, True)
-        
+
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
 
@@ -296,7 +293,6 @@ class Pix2PixModel(BaseModel):
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # update G's weights
-    
-    
+     
     
     

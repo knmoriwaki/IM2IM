@@ -55,7 +55,7 @@ You can check the model structure in the output file at `./tmp`
 
 ## Known Issues
 
-- An error CUDNN_STATUS_EXECUTION_FAILED:
+- RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
 solved when I re-launch the console.
-
+ 
 
