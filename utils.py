@@ -3,10 +3,6 @@ import sys
 import numpy as np
 
 import torch
-#torch.backends.cudnn.benchmark = True
-#torch.backends.cudnn.deterministic = True
-#torch.backends.cuda.matmul.allow_tf32 = False
-#torch.backends.cudnn.allow_tf32 = True ## this makes the speed faster but the precision smaller
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
@@ -47,7 +43,10 @@ def my_init(seed=0, gpu_ids="0"):
         gpu_device_name = 'cuda:{}'.format(gpu_ids[0])
         device = torch.device(gpu_device_name)
         torch.cuda.manual_seed(seed)
-        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.deterministic = True 
+        torch.backends.cudnn.benchmark = True
+        #torch.backends.cuda.matmul.allow_tf32 = False
+        #torch.backends.cudnn.allow_tf32 = True ## this makes the speed faster but the precision smaller
         print("# GPU ({}) is used".format(gpu_device_name))
     else:
         device = torch.device("cpu")

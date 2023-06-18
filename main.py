@@ -13,7 +13,7 @@ from model import MyModel
 
 from utils import *
 
-#torch.autograd.set_detect_anomaly(True) ## For debug -- detect places where backpropagation doesn't work properly
+torch.autograd.set_detect_anomaly(True) ## For debug -- detect places where backpropagation doesn't work properly
 
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("--isTrain", dest="isTrain", action='store_true', help="train or test")
@@ -39,7 +39,7 @@ parser.add_argument("--output_dim", dest="output_dim", type=int, default=256, he
 
 parser.add_argument("--hidden_dim_G", dest="hidden_dim_G", type=int, default=64, help="the number of expected features in the first layer of the generator")
 parser.add_argument("--hidden_dim_D", dest="hidden_dim_D", type=int, default=64, help="the number of expected features in the first layer of the discriminator")
-parser.add_argument("--nlayer_G", dest="nlayer_G", type=int, default=7, help="the number of layers in the generator")
+parser.add_argument("--nlayer_G", dest="nlayer_G", type=int, default=8, help="the number of layers in the generator")
 parser.add_argument("--nlayer_D", dest="nlayer_D", type=int, default=4, help="the number of layers in the discriminator")
 parser.add_argument("--dropout", dest="dropout", type=float, default=0.5, help="dropout rate")
 
