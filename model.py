@@ -278,7 +278,7 @@ class Pix2Pix(BaseModel):
 
         if self.gan_mode == "wgan":
             for p in self.netD.parameters():
-                p.data.clamp_(-0.1,0.1)
+                p.data.clamp_(-0.01,0.01)
 
     def backward_G(self):
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
