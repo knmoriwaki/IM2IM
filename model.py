@@ -9,8 +9,8 @@ from collections import OrderedDict
 from utils import *
 
 def MyModel(args):
-    if args.model == "pix2pix":
-        model = Pix2PixModel(opt=args)
+    if "pix2pix" in args.model:
+        model = Pix2Pix(opt=args)
     else:
         print("Error: unknown model", file=sys.stderr)
         sys.exit(1)
@@ -23,9 +23,10 @@ def MyModel(args):
 def init_net(net, gpu_ids=[]):
 
     if len(gpu_ids) > 0:
-        assert(torch.cuda.is_available())
-        net.to(gpu_ids[0])
-        net = torch.nn.DataParallel(net, gpu_ids)
+        if gpu_ids[0] != -1:
+            assert(torch.cuda.is_available())
+            net.to(gpu_ids[0])
+            net = torch.nn.DataParallel(net, gpu_ids)
 
     ### Initialize network weights ### 
     def init_func(m, init_gain=0.02):
@@ -47,7 +48,7 @@ def define_G(opt, gpu_ids=[]):
             output_nc = opt.output_nc, 
             ngf = opt.hidden_dim_G, 
             dropout = opt.dropout,
-            n_layers=7
+            n_layers = opt.nlayer_G
         )
     return init_net(G, gpu_ids)
 
@@ -56,7 +57,7 @@ def define_D(opt, gpu_ids=[]):
     D = NLayerDiscriminator(
             input_nc = opt.input_nc + opt.output_nc,
             ndf = opt.hidden_dim_D,
-            n_layers = 3
+            n_layers = opt.nlayer_D
             )
 
     return init_net(D, gpu_ids)
@@ -101,7 +102,7 @@ class GANLoss(nn.Module):
             self.loss = nn.MSELoss()
         elif gan_mode == 'vanilla':
             self.loss = nn.BCEWithLogitsLoss()
-        elif gan_mode in ['wgangp']:
+        elif gan_mode in ['wgangp', 'wgan']:
             self.loss = None
         else:
             raise NotImplementedError('gan mode %s not implemented' % gan_mode)
@@ -114,7 +115,7 @@ class GANLoss(nn.Module):
             else:
                 target_tensor = self.fake_label
             loss = self.loss(prediction, target_tensor.expand_as(prediction))
-        elif self.gan_mode == 'wgangp':
+        elif self.gan_mode == 'wgangp' or self.gan_mode == 'wgan':
             if target_is_real:
                 loss = -prediction.mean()
             else:
@@ -195,14 +196,15 @@ class UnetSkipConnectionBlock(nn.Module):
         else:   # add skip connections
             return torch.cat([x, self.model(x)], 1)
 
+
 class NLayerDiscriminator(nn.Module):
 
     def __init__(self, input_nc, ndf=64, n_layers=5):
         super().__init__()
 
         #padw = "same" is not supported for strided convolutions
-        kw = 5
-        padw = 2
+        kw = 4
+        padw = 1
         sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
 
         nf_mult = 1
@@ -221,16 +223,18 @@ class NLayerDiscriminator(nn.Module):
 
         self.model = nn.Sequential(*sequence)
 
-    def forward(self, input):
+    def forward(self, x):
         """Standard forward."""
-        return self.model(input)
+        return self.model(x)
 
 
-class Pix2PixModel(BaseModel):
+class Pix2Pix(BaseModel):
 
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
 
+        self.gan_mode = "vanilla"
+       
         self.loss_names = [ "G_GAN", "G_L1", "D_real", "D_fake" ]
         self.visual_names = [ "real_A", "fake_B", "real_B"]
 
@@ -243,10 +247,10 @@ class Pix2PixModel(BaseModel):
         if self.isTrain:
             self.netD = define_D(opt, gpu_ids=self.gpu_ids)
 
-            self.criterionGAN = GANLoss('vanilla').to(self.device)
+            self.criterionGAN = GANLoss(self.gan_mode).to(self.device)
             self.criterionL1 = torch.nn.L1Loss(reduction="mean")
 
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr*2, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
@@ -258,8 +262,9 @@ class Pix2PixModel(BaseModel):
 
     def forward(self):
         self.fake_B = self.netG(self.real_A) 
-
+ 
     def backward_D(self):
+
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB.detach())
         self.loss_D_fake = self.criterionGAN(pred_fake, False)
@@ -271,6 +276,10 @@ class Pix2PixModel(BaseModel):
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
 
+        if self.gan_mode == "wgan":
+            for p in self.netD.parameters():
+                p.data.clamp_(-0.1,0.1)
+
     def backward_G(self):
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
@@ -280,7 +289,7 @@ class Pix2PixModel(BaseModel):
         
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
         self.loss_G.backward()
-    
+
     def optimize_parameters(self):
         self.forward()                   # compute fake images: G(A)
 
@@ -288,11 +297,16 @@ class Pix2PixModel(BaseModel):
         self.optimizer_D.zero_grad()     # set D's gradients to zero
         self.backward_D()                # calculate gradients for D
         self.optimizer_D.step()          # update D's weights
-
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
+        
         self.optimizer_G.zero_grad()        # set G's gradients to zero
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # update G's weights
-     
-    
-    
+
+    def save_test_image(self, opt, fid, overwrite=False):
+        with torch.no_grad():
+            self.forward()
+            for iout in range(opt.output_nc):
+                fname = "{}_{:d}.fits".format(fid, iout)
+                save_image(self.fake_B[0][iout], fname, opt.norm, overwrite=overwrite)
+      

@@ -9,6 +9,7 @@ cGAN model based on pix2pix [(Isola et al. 2016)](https://github.com/eriklindern
 Install the following libraries with `pip`.
 - torch==1.12.0
 - torchvision==0.13.0
+- torchinfo
 - tqdm
 - astropy
 
@@ -30,19 +31,18 @@ Run both training and test code by
 ```
 You can change the parameters in run.sh.
 
-
 Use plot.ipynb to check the model performance. 
 
-Loss function:  
+- Loss function:  
 ![loss](image/loss.png) 
 
-Test output:  
+- Test output:  
 ![test](image/test_image.png) 
 
-Images generated during training:  
+- Images generated during training:  
 ![iter](image/training_iter.png)
 
-You can check the model structure in the output file at `./tmp`
+You can check the model structure in the output file 
 
 
 - Input shape: (batch_size, input_nc, input_dim, input_dim)

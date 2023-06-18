@@ -212,8 +212,3 @@ class BaseModel(ABC):
             if net is not None:
                 for param in net.parameters():
                     param.requires_grad = requires_grad
-
-    def save_test_image(self, opt, fname, overwrite=False):
-        with torch.no_grad():
-            self.forward()
-            save_image(self.fake_B, fname, opt.norm, overwrite=overwrite)

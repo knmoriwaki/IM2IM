@@ -13,6 +13,8 @@ from model import MyModel
 
 from utils import *
 
+#torch.autograd.set_detect_anomaly(True) ## For debug -- detect places where backpropagation doesn't work properly
+
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("--isTrain", dest="isTrain", action='store_true', help="train or test")
 parser.add_argument('--gpu_ids', dest="gpu_ids", type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
@@ -37,6 +39,8 @@ parser.add_argument("--output_dim", dest="output_dim", type=int, default=256, he
 
 parser.add_argument("--hidden_dim_G", dest="hidden_dim_G", type=int, default=64, help="the number of expected features in the first layer of the generator")
 parser.add_argument("--hidden_dim_D", dest="hidden_dim_D", type=int, default=64, help="the number of expected features in the first layer of the discriminator")
+parser.add_argument("--nlayer_G", dest="nlayer_G", type=int, default=7, help="the number of layers in the generator")
+parser.add_argument("--nlayer_D", dest="nlayer_D", type=int, default=4, help="the number of layers in the discriminator")
 parser.add_argument("--dropout", dest="dropout", type=float, default=0.5, help="dropout rate")
 
 # training parameters #
@@ -59,7 +63,12 @@ args = parser.parse_args()
 
 def main():
 
-    device = my_init(seed=0, gpu_ids=args.gpu_ids[0])
+    device = my_init(seed=0, gpu_ids=args.gpu_ids)
+
+    if args.model == "pix2pix_2" and args.output_nc != 2:
+        print("Warning: inconsinstent output_nc. Use output_nc = 2")
+        args.output_nc = 2
+
     if args.isTrain:
         with open("{}/params.json".format(args.output_dir), mode="a") as f:
             json.dump(args.__dict__, f)
@@ -77,23 +86,40 @@ def load_data(path, prefix_list, device="cuda:0"):
         data = load_fits_image(fnames, norm=args.norm, device=device)
         data_list.append(data)
     source = data_list[0] + data_list[1]
-    target = data_list[1] ## train to output oiii data
+    target1 = data_list[0] 
+    target2 = data_list[1] 
     print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
+
+    if args.model == "pix2pix_2":
+        target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
+    else:
+        target = target2
+
     return source, target
     
 def train(device):
-
+ 
     ### define model ###
     model = MyModel(args)
     model.setup(args, verbose=True) #set verbose=True to show the model architecture
-    summary(model.netG, input_size=(args.batch_size, args.input_nc, args.input_dim, args.input_dim), col_names=["output_size", "num_params"])
-    summary(model.netD, input_size=(args.batch_size, args.input_nc+args.output_nc, args.input_dim, args.input_dim), col_names=["output_size", "num_params"])
+    
+    summary(model.netG, input_size=(args.batch_size, args.input_nc, args.input_dim, args.input_dim), col_names=["output_size", "num_params"], device=device)
+    summary(model.netD, input_size=(args.batch_size, args.input_nc+args.output_nc, args.input_dim, args.input_dim), col_names=["output_size", "num_params"], device=device)
+    
 
     ### load data ###
     prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
     source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
+
+    if np.shape(source)[1] != args.input_nc:
+        print("Error: inconsistent input_nc")
+        sys.exit(1)
+
+    if np.shape(target)[1] != args.output_nc:
+        print("Error: inconsistent output_nc")
+        sys.exit(1)
 
     print("# batch_size: ", args.batch_size)
     print("# source data: ", np.shape(source))
@@ -131,14 +157,15 @@ def train(device):
                 if args.save_image_irun >= 0:
                     src_ref = torch.unsqueeze(source[args.save_image_irun], 0)
                     tgt_ref = torch.unsqueeze(target[args.save_image_irun], 0)
-                    model.set_input([src_ref, tgt_ref])
-                    fname = "{}/{}_iter_{:d}.fits".format(args.output_dir, prefix_list[args.save_image_irun], total_iters)
-                    model.save_test_image(args, fname, overwrite=True) 
+                    fid = "{}/{}_iter_{:d}".format(args.output_dir, prefix_list[args.save_image_irun], total_iters)
+                    model.save_test_image(args, fid, overwrite=True) 
                 else:
-                    fname = "{}/iter_{:d}.fits".format(args.output_dir, total_iters)
+                    fid = "{}/iter_{:d}".format(args.output_dir, total_iters)
                     visuals = model.get_current_visuals()
-                    save_image(visuals["fake_B"][0], fname, args.norm, overwrite=True)
-                print("# save {}".format(fname))
+                    for iout in range(args.output_nc):
+                        fname = "{}_{:d}.fits".format(fid, iout)
+                        save_image(visuals["fake_B"][0][iout], fname, args.norm, overwrite=True)
+                print("# save {}_*.fits".format(fid))
             
             del src, tgt
             torch.cuda.empty_cache()
@@ -163,13 +190,13 @@ def test(device):
     ### test ###
     for i, (src, tgt, p) in enumerate(zip(source, target, prefix_list)):
         src = torch.unsqueeze(src, 0)
-        tgt = torch.unsqueeze(tgt, 0)
-        if args.load_iter > 0: suf += "iter{:d}".format(args.load_iter)
+        tgt = torch.unsqueeze(target[i], 0)
+        
         model.set_input([src,tgt])
 
-        fname = "{}/test/gen_{}.fits".format(args.output_dir, p) 
-        model.save_test_image(args, fname, overwrite=True)
-        print("# save {}".format(fname))
+        fid = "{}/test/gen_{}".format(args.output_dir, p) 
+        model.save_test_image(args, fid, overwrite=True)
+        print("# save {}_*.fits".format(fid))
 
 if __name__ == "__main__":
     main()

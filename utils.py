@@ -3,10 +3,10 @@ import sys
 import numpy as np
 
 import torch
-torch.backends.cuda.matmul.allow_tf32 = False
-torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.allow_tf32 = True
+#torch.backends.cudnn.benchmark = True
+#torch.backends.cudnn.deterministic = True
+#torch.backends.cuda.matmul.allow_tf32 = False
+#torch.backends.cudnn.allow_tf32 = True ## this makes the speed faster but the precision smaller
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
@@ -39,11 +39,11 @@ def save_image(image, path, norm, overwrite=False):
     hdul.writeto(path, overwrite=overwrite)
 
     
-def my_init(seed=0, gpu_ids=-1):
+def my_init(seed=0, gpu_ids="0"):
     ## reference: https://pytorch.org/docs/stable/notes/randomness.html
 
     is_cuda = torch.cuda.is_available()
-    if is_cuda and gpu_ids != -1:
+    if is_cuda and gpu_ids != "-1":
         gpu_device_name = 'cuda:{}'.format(gpu_ids[0])
         device = torch.device(gpu_device_name)
         torch.cuda.manual_seed(seed)
@@ -55,8 +55,8 @@ def my_init(seed=0, gpu_ids=-1):
 
     np.random.seed(seed)
     torch.manual_seed(seed)
-    #torch.use_deterministic_algorithms(True)
-    #os.environ["CUBLAS_WORKSPACE_CONFIG"]=":16:8" 
+    torch.use_deterministic_algorithms(True)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"]=":16:8" 
 
     return device
 
@@ -72,10 +72,10 @@ def print_loss_names(opt, losses):
         log_file.write('%s\n' % message)  # save the messag
 
 def print_current_losses(opt, total_iters, total_iters_b, epoch, losses, t):
-    message = '%d %d %.3f %.3f' % (total_iters, total_iters_b, epoch, t)
+    message = '%d %d %f %.3f' % (total_iters, total_iters_b, epoch, t)
 
     for k, v in losses.items():
-        message += ' %.3f' % v
+        message += ' %.5f' % v
 
     print(message)  # print the message
     log_name = os.path.join(opt.output_dir, 'loss_log.txt')
@@ -96,5 +96,6 @@ class MyDataset(Dataset):
     def __getitem__(self, i):
         input = self.input_list[i]
         output = self.output_list[i]
+
         return input, output
 
