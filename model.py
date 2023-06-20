@@ -218,8 +218,8 @@ class NLayerDiscriminator(nn.Module):
                 nn.LeakyReLU(0.2, True)
             ]
 
-        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=1, stride=1, padding=padw)]  # output 1 channel prediction map 
-        # this last conv2d with kernel size 1 is equivalent to flatten + linear
+        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]  # output 1 channel prediction map 
+        # this last layer is different from the original pix2pix, where they use flatten + linear
         # note Sigmoid function for vanilla GAN is included in the loss fuction BCEWithLogitsLoss.
 
         self.model = nn.Sequential(*sequence)
@@ -227,7 +227,7 @@ class NLayerDiscriminator(nn.Module):
     def forward(self, x):
         """Standard forward."""
         #return self.model(x)
-        return torch.mean(self.model(x)) # without mean (patch GAN), the network sometimes outputs nan because of the extreme values (0 or 1) in some patches.
+        return torch.mean(self.model(x), dim=(1,2,3))
 
 
 class Pix2Pix(BaseModel):
@@ -235,8 +235,7 @@ class Pix2Pix(BaseModel):
     def __init__(self, opt):
         BaseModel.__init__(self, opt)
 
-        self.gan_mode = "vanilla"
-        #self.gan_mode = "wgan"
+        self.gan_mode = opt.gan_mode
        
         self.loss_names = [ "G_GAN", "G_L1", "D_real", "D_fake" ]
         self.visual_names = [ "real_A", "fake_B", "real_B"]

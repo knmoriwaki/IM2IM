@@ -13,7 +13,7 @@ from model import MyModel
 
 from utils import *
 
-torch.autograd.set_detect_anomaly(True) ## For debug -- detect places where backpropagation doesn't work properly
+#torch.autograd.set_detect_anomaly(True) ## For debug -- detect places where backpropagation doesn't work properly
 
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("--isTrain", dest="isTrain", action='store_true', help="train or test")
@@ -54,6 +54,7 @@ parser.add_argument('--lr_decay_iters', dest="lr_decay_iters", type=int, default
 parser.add_argument("--beta1", dest="beta1", type=float, default=0.5, help="beta1 of Adam optimizer")
 
 parser.add_argument("--lambda_L1", dest="lambda_L1", type=float, default=10.0, help="weight for L1 loss in GAN")
+parser.add_argument("--gan_mode", dest="gan_mode", default="vanilla", help="GAN loss -- vanilla, wgan, wgangp, lsgan")
 
 parser.add_argument("--print_freq", dest="print_freq", type=int, default=100, help="frequency of showing training results on console")
 parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, default=5000, help="frequency of saving the latest results")
@@ -94,7 +95,8 @@ def load_data(path, prefix_list, device="cuda:0"):
         target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
     else:
         target = target2
-
+    
+    target = torch.clamp(target, min=-1.0, max=1.0)
     return source, target
     
 def train(device):

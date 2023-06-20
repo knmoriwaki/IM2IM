@@ -55,7 +55,10 @@ You can check the model structure in the output file
 
 ## Known Issues
 
-- RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR:
-comment out `torch.use_deterministic_algorithms(True)` and `os.environ["CUBLAS_WORKSPACE_CONFIG"]=":16:8"` ([link](https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html))
+- RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
+
+- Network outputs nan or inf values
+
+These errors were due to very large/small values in some of the discriminator's output patches. To avoid this, one should decrease the number of patches in the output. One simple way is to increase the number of layers.
  
 

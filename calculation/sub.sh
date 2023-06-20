@@ -1,6 +1,7 @@
 
 true_dir=../val_data
-opt_name=pix2pix_2_bs4_ep4_lambda100
+opt_name=pix2pix_2_bs4_ep1_lambda1000_vanilla
+#opt_name=pix2pix_2_bs4_ep1_lambda100_wgan
 pred_dir=../output/${opt_name}/test
 
 odir=./output
