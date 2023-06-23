@@ -24,6 +24,7 @@ parser.add_argument("--data_dir", dest="data_dir", type=str, default="./training
 parser.add_argument("--val_dir", dest="val_dir", type=str, default="./val_data", help="Root directory of validation dataset")
 parser.add_argument("--test_dir", dest="test_dir", type=str, default="./test_data", help="Root directory of test dataset")
 parser.add_argument('--output_dir', dest="output_dir", type=str, default='./output', help='all the outputs and models are saved here')
+parser.add_argument('--results_dir', dest="results_dir", type=str, default='./output', help='optional, inference outputs are saved here')
 parser.add_argument('--name', dest="name", type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
 
 parser.add_argument("--norm", dest="norm", type=float, default=1.0, help="Normalization")
@@ -63,7 +64,6 @@ parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, defau
 args = parser.parse_args()
 
 def main():
-
     device = my_init(seed=0, gpu_ids=args.gpu_ids)
 
     if args.model == "pix2pix_2" and args.output_nc != 2:
@@ -193,10 +193,17 @@ def test(device):
     for i, (src, tgt, p) in enumerate(zip(source, target, prefix_list)):
         src = torch.unsqueeze(src, 0)
         tgt = torch.unsqueeze(target[i], 0)
+        print("test", args.output_dir)
         
         model.set_input([src,tgt])
 
-        fid = "{}/test/gen_{}".format(args.output_dir, p) 
+        # Make sure the subdirectory exists, if not create it
+        tmp_fid = "{}/test".format(args.results_dir)
+        if not os.path.exists(tmp_fid):
+            os.makedirs(tmp_fid)
+
+        fid = "{}/test/gen_{}".format(args.results_dir, p) 
+        print(fid)
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
 
