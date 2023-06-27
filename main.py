@@ -17,6 +17,7 @@ from utils import *
 
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("--isTrain", dest="isTrain", action='store_true', help="train or test")
+parser.add_argument("--isXAI", dest="isXAI", action='store_true', help="Run XAI Experiment")
 parser.add_argument('--gpu_ids', dest="gpu_ids", type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
 parser.add_argument('--load_iter', dest="load_iter", type=int, default='0', help='If load_iter > 0, the code will load models by iter_[load_iter]. If load_iter = -1, the code will load the latest model')
 
@@ -76,6 +77,39 @@ def main():
         train(device)
     else:
         test(device)
+
+def xai_load_data(path, prefix_list, device="cuda:0"):
+
+    start_time = time.time()
+    print("# XAI loading data from {}".format(path), end=" ")
+    exit()
+
+    data_list = []
+    l_ha = True
+    l_oiii = False
+    if l_ha:
+        labels = [ "z1.3_ha", "no_signal" ]
+    elif l_oiii:
+        labels = [ "z2.0_oiii", "no_signal" ]
+    else:
+        raiseValueError("l_ha or l_oiii must be True") 
+
+    for label in labels:
+        fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
+        data = load_fits_image(fnames, norm=args.norm, device=device) # Unsure if the normalization breaks for the no signal image
+        data_list.append(data)
+    source = data_list[0] + data_list[1]
+    target1 = data_list[0] 
+    target2 = data_list[1] 
+    print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
+
+    if args.model == "pix2pix_2":
+        target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
+    else:
+        target = target2
+    
+    target = torch.clamp(target, min=-1.0, max=1.0)
+    return source, target
 
 def load_data(path, prefix_list, device="cuda:0"):
 
@@ -181,7 +215,10 @@ def test(device):
 
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
-    source, target = load_data(args.test_dir, prefix_list, device=device)
+    if args.isXAI:
+        source, target = xai_load_data(args.test_dir, prefix_list, device=device)
+    else:
+        source, target = load_data(args.test_dir, prefix_list, device=device)
 
     ### load model ###
     model = MyModel(args)
