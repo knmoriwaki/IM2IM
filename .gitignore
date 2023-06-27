@@ -12,3 +12,9 @@ test_data/
 tmp/
 image/.ipynb_checkpoints/
 xxx/
+
+# Python virtual environments
+*_venv/
+
+# Images
+image/*.png
