@@ -42,7 +42,7 @@ def plot_true_fake_maps(output_dir):
     plt.savefig("test_image.png")
     plt.close()
 
-def dbm(data):
+def calc_dbm(data):
     """"Calculate the difference between the mean values. This resembles the L1 Norm,
     but we care about if the difference is positive or negative.
     Input: data (dict) with following labels: ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]
@@ -53,7 +53,7 @@ def dbm(data):
     doiii = np.mean(data["trueOIII"]) - np.mean(data["fakeOIII"])
     return [d, dha, doiii]
 
-def rmse(data):
+def calc_rmse(data):
     """Calculate the root mean square error between the true and reconstructed maps.
     Input: data (dict) with following labels: ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]
     Output: [rmse, rmse_ha, rmse_oiii] (list) with RMSE values for the mixed signal, Halpha and OIII.
@@ -63,12 +63,26 @@ def rmse(data):
     rmse_oiii = np.sqrt(np.mean((data["trueOIII"] - data["fakeOIII"])**2))
     return [rmse, rmse_ha, rmse_oiii]
 
+def calc_acc(data):
+    """Summation of the values in the true and reconstructed maps. 
+    Moreover, comparison (difference) between these two.
+    Input: data (dict) with following labels: ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]
+    Output: [dsum, sum_ha, dsum_oiii] (list) with the sum of the true and reconstructed maps and their difference.
+    """
+    dsum = np.sum(data["obs"]) - np.sum(data["rec"])
+    sum_ha = np.sum(data["trueHa"]) - np.sum(data["fakeHa"])
+    sum_oiii = np.sum(data["trueOIII"]) - np.sum(data["fakeOIII"])
+    return [dsum, sum_ha, sum_oiii]
+
+
 if __name__ == "__main__":
     data = read_data(output_dir, ldict=True)
-    difference = dbm(data)
-    rmse = rmse(data)
-    print(difference)
-    print(rmse)
+    difference = calc_dbm(data)
+    rmse = calc_rmse(data)
+    acc = calc_acc(data)
+    print("Difference between means ", difference)
+    print("Root mean square error ", rmse)
+    print("Difference between accumulated values ", acc)
 
     
 
