@@ -35,7 +35,7 @@ def my_fft(X, L=None, b=1.): # b = 2 * np.pi for inverse FT
     return ft, freq
 
 
-def angular_average_nd(field, coords, nbins, n=None, log_bins=False, indx_min=1):
+def angular_average_nd(field, coords, nbins, n=None, log_bins=False, indx_min=0):
     ## can be used for real field only
 
     dim = len(field.shape)
@@ -45,6 +45,8 @@ def angular_average_nd(field, coords, nbins, n=None, log_bins=False, indx_min=1)
     coords = np.sqrt(np.sum(np.meshgrid(*([x**2] for x in coords)), axis=0)) # k(i,j) = sqrt( ki*ki + kj*kj )
 
     ### define bins ###
+    # "bins" here includes nbins + 1 components corresponding to the edge values of the k-bin
+    # if you want to compute the "k of the bin", then you should take (bins[i]+bins[i+1])/2
     mx = coords.max()
     if not log_bins:
         bins = np.linspace(coords.min(), mx, nbins + 1)
@@ -53,21 +55,31 @@ def angular_average_nd(field, coords, nbins, n=None, log_bins=False, indx_min=1)
         bins = np.logspace(np.log10(mn), np.log10(mx), nbins + 1)
 
     ### set index for each pixel ###
+    # label an index that satisfies bins[indx-1] <= coords < bins[indx]
+    # indx takes 0, 1, ..., nbin+1
     indx = np.digitize(coords.flatten(), bins)
 
     ### compute the number of pixels in each bin ###
+    # each component in bincount correaponds to the number of pixels with indx = 0, 1, ..., nbin+1
+    # i.e., bincount has nbin + 2 = len(bins) + 1 components
+    # the first component of bincount is for values < mn. 
+    # the last component of bincount is for values > mx, where there should be no such pixels. So bincount[-1] is always 0.
+    # we remove these two compontnes by setting [1:-1].
     sumweights = np.bincount(indx, minlength=len(bins)+1)[1:-1] 
     if np.any(sumweights==0):
-        warnings.warn("One or more radial bins had no cells within it. Use a smaller nbins.")
+        warnings.warn("One or more radial bins had no cell within it. Use a smaller nbins.")
+    if np.any(sumweights==1):
+        print("Warning: one or more radial bins have only one cell within it. This would result in inf in the variance")
 
-    ### for each bin, sum up the field values, and then divide by the number of pixels ###
-    mean = np.bincount(indx, weights=np.real(field.flatten()), minlength=len(sumweights)+2)[1:-1] / sumweights
-
+    ### compute the mean in each bin ###
+    # for each bin, sum up the field values, and then divide by the number of pixels 
+    mean = np.bincount(indx, weights=np.real(field.flatten()), minlength=len(bins)+1)[1:-1] / sumweights
 
     ### compute variance ### 
+    # for each bin, sum up the variance field values (i.e., (field-average)**2), and then divide by the number of pixels 
     average_field = np.concatenate(([0], mean, [0]))[indx]
     var_field = ( field.flatten() - average_field ) ** 2
-    var = np.bincount(indx, weights=var_field, minlength=len(sumweights)+2)[1:-1] / (sumweights-1) / sumweights
+    var = np.bincount(indx, weights=var_field, minlength=len(bins)+1)[1:-1] / (sumweights-1)
 
     return mean[indx_min:], bins[indx_min:], var[indx_min:]
 
