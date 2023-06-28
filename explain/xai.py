@@ -53,7 +53,6 @@ def plot_true_fake_maps(output_dir):
     plt.savefig("test_image.png")
     plt.close()
 
-
 def calc_eval_metrics(data):
     """Calculate the evaluation metrics for the reconstructed maps of one data sample.
     1) Difference between the mean values (DBM). This resembles the L1 Norm, but we care about if the difference is positive or negative.
@@ -100,10 +99,32 @@ def write_zero_fits(output_dir, data):
     file_name = f"{output_dir}/{suffix}.fits"
     save_fits_data(img, file_name, norm=2.0e-7, overwrite=False)
 
+def create_dataframe(output_dir, suffix_list):
+    """
+    Reads in several samples and creates a dataframe with the evaluation metrics.
+    Input: suffix_list (list) with the ids of the samples.
+    Output: df (pandas dataframe) with the evaluation metrics.
+    """
+    data = read_data(output_dir, suffix=suffix_list[0], ldict=True)
+    _, initial_k = calc_eval_metrics(data)
+    temp = []
+    for data_sample in suffix_list:
+        data = read_data(output_dir, suffix=data_sample, ldict=True)
+        # Perform analysis and calculate evaluation metrics
+        eval_dic, k = calc_eval_metrics(data)
+        assert k.all() == initial_k.all()
+        # Add sample ID and timestamp to the evaluation results
+        eval_dic['sample_id'] = data_sample
+        temp.append(eval_dic)
+    df = pd.DataFrame(temp)
+    return df
+
 if __name__ == "__main__":
     name = f"pix2pix_2_bs4_ep1_lambda1000_vanilla" # GAN model name
     output_dir = f"/mnt/data_cat4/moriwaki/IM2IM/output/{name}"
     results_dir = "../output/xai_results/"
+    print("Reading data from ", output_dir)
+    print("Writing results to ", results_dir)
 
     # Check if the output directories exists
     if not os.path.exists(output_dir):
@@ -115,8 +136,10 @@ if __name__ == "__main__":
         os.makedirs(results_dir)
         data = read_data(output_dir, ldict=True)
 
-    data = read_data(output_dir, ldict=True)
-    eval_dic, _ = calc_eval_metrics(data)
+    nrun = 100
+    nindex = 1
+    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
+    df_data = create_dataframe(output_dir, suffix_list)
     
     print("DONE")
     
