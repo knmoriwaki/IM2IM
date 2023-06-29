@@ -2,6 +2,7 @@ import sys
 import argparse
 import time
 import json
+import pdb
 
 import torch
 import torch.nn as nn
@@ -62,6 +63,10 @@ parser.add_argument("--print_freq", dest="print_freq", type=int, default=100, he
 parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, default=5000, help="frequency of saving the latest results")
 parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, default=10000, help="frequency of saving the generated image")
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
+
+# XAI parameters #
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii'], type=str, default="ha", help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
+
 args = parser.parse_args()
 
 def main():
@@ -79,28 +84,33 @@ def main():
         test(device)
 
 def xai_load_data(path, prefix_list, device="cuda:0"):
-
+    """ Modification to load data for XAI experiments using only one input instead of the mixed signal.
+    """
     start_time = time.time()
-    print("# XAI loading data from {}".format(path), end=" ")
-    exit()
-
+    print("# loading data from {}".format(path), end=" ")
     data_list = []
-    l_ha = True
-    l_oiii = False
-    if l_ha:
-        labels = [ "z1.3_ha", "no_signal" ]
-    elif l_oiii:
-        labels = [ "z2.0_oiii", "no_signal" ]
-    else:
-        raiseValueError("l_ha or l_oiii must be True") 
-
-    for label in labels:
+    for label in [ "z1.3_ha", "z2.0_oiii" ]:
         fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
-        data = load_fits_image(fnames, norm=args.norm, device=device) # Unsure if the normalization breaks for the no signal image
+        data = load_fits_image(fnames, norm=args.norm, device=device)
         data_list.append(data)
-    source = data_list[0] + data_list[1]
-    target1 = data_list[0] 
-    target2 = data_list[1] 
+    
+    if args.xai_exp == "ha":
+        source = data_list[0]
+        target1 = data_list[0] 
+        target2 = data_list[1]*0.0
+        print("Halpha set as source and target. ", torch.mean(source), torch.mean(target1))
+        print("This value should be zero: ", torch.mean(target2))
+    elif args.xai_exp == "oiii":
+        source = data_list[1]
+        target1 = data_list[0]*0.0 
+        target2 = data_list[1] 
+        print("OIII set as source and target. ", torch.mean(source), torch.mean(target2))
+        print("This value should be zero: ", torch.mean(target1))
+    else:
+        print("Error: no label for the XAI expieriment is specified")
+        sys.exit(1)
+
+
     print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
 
     if args.model == "pix2pix_2":
@@ -226,20 +236,28 @@ def test(device):
 
     model.eval()
 
+    if args.xai_exp == "ha":
+        exp_dir = "xai_exp_only_using_ha"
+    elif args.xai_exp == "oiii":
+        exp_dir = "xai_exp_only_using_oiii"
+    else:
+        exp_dir = "test"
+
     ### test ###
     for i, (src, tgt, p) in enumerate(zip(source, target, prefix_list)):
         src = torch.unsqueeze(src, 0)
         tgt = torch.unsqueeze(target[i], 0)
-        print("test", args.output_dir)
         
         model.set_input([src,tgt])
 
         # Make sure the subdirectory exists, if not create it
-        tmp_fid = "{}/test".format(args.results_dir)
+        tmp_fid = "{}/{}".format(args.results_dir, exp_dir)
         if not os.path.exists(tmp_fid):
+            print("# create {}".format(tmp_fid))
             os.makedirs(tmp_fid)
 
-        fid = "{}/test/gen_{}".format(args.results_dir, p) 
+
+        fid = "{}/gen_{}".format(tmp_fid, p) 
         print(fid)
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
