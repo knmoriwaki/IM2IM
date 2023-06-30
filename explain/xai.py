@@ -50,7 +50,8 @@ def plot_true_fake_maps(data, results_dir):
     # reproduced map
     label_list = ["observed", "true A", "true B", "observed (rec)", "reconstructed A", "reconstructed B"]
     vmin = 0
-    vmax = np.max(data[0])
+    #vmax = np.max(data[0])
+    vmax = 9.0e-08
 
     fig, axs = plt.subplots(2,3)
 
@@ -76,20 +77,40 @@ def calc_eval_metrics(data):
     Output: eval_dic (dict) with the evaluation metrics.
     """
     eval_dic = {}
+    ## Error metrics
     eval_dic["l1_mix"] = np.mean(data["obs"]) - np.mean(data["rec"])
     eval_dic["l1_ha"] = np.mean(data["trueHa"]) - np.mean(data["fakeHa"])
     eval_dic["l1_oiii"] = np.mean(data["trueOIII"]) - np.mean(data["fakeOIII"])
     eval_dic["rmse_mix"] = np.sqrt(np.mean((data["obs"] - data["rec"])**2))
     eval_dic["rmse_ha"] = np.sqrt(np.mean((data["trueHa"] - data["fakeHa"])**2))
     eval_dic["rmse_oiii"] = np.sqrt(np.mean((data["trueOIII"] - data["fakeOIII"])**2))
-    eval_dic["acc_mix"] = np.sum(data["obs"]) - np.sum(data["rec"])
-    eval_dic["acc_ha"] = np.sum(data["trueHa"]) - np.sum(data["fakeHa"])
-    eval_dic["acc_oiii"] = np.sum(data["trueOIII"]) - np.sum(data["fakeOIII"])
+    eval_dic["d_sum_mix"] = np.sum(data["obs"]) - np.sum(data["rec"])
+    eval_dic["d_sum_ha"] = np.sum(data["trueHa"]) - np.sum(data["fakeHa"])
+    eval_dic["d_sum_oiii"] = np.sum(data["trueOIII"]) - np.sum(data["fakeOIII"])
+    ## Statistical metrics single field   
+    eval_dic["mean_trueha"] = np.mean(data["trueHa"])
+    eval_dic["mean_fakeha"] = np.mean(data["fakeHa"])
+    eval_dic["mean_trueoiii"] = np.mean(data["trueOIII"])
+    eval_dic["mean_fakeoiii"] = np.mean(data["fakeOIII"])
+    eval_dic["std_trueha"] = np.std(data["trueHa"])
+    eval_dic["std_fakeha"] = np.std(data["fakeHa"])
+    eval_dic["std_trueoiii"] = np.std(data["trueOIII"])
+    eval_dic["std_fakeoiii"] = np.std(data["fakeOIII"])
+    eval_dic["sum_trueha"] = np.sum(data["trueHa"])
+    eval_dic["sum_fakeha"] = np.sum(data["fakeHa"])
+    eval_dic["sum_trueoiii"] = np.sum(data["trueOIII"])
+    eval_dic["sum_fakeoiii"] = np.sum(data["fakeOIII"])
+    eval_dic["max_trueha"] = np.max(data["trueHa"])
+    eval_dic["max_fakeha"] = np.max(data["fakeHa"])
+    eval_dic["max_trueoiii"] = np.max(data["trueOIII"])
+    eval_dic["max_fakeoiii"] = np.max(data["fakeOIII"])
+
+
     # There are many correlation coefficients resulting from different k values. 
     # The k values for each map are the same, so we can just take the first one.
-    r_mix , k_array = compute_r(data["obs"], data["rec"])
-    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"])
-    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"])
+    r_mix , k_array = compute_r(data["obs"], data["rec"], log_bins=True)
+    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=True)
+    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=True)
     i = 0
     for i in range(len(k_array)-1): 
         k = k_array[i]
@@ -132,11 +153,57 @@ def create_dataframe(output_dir, nrun=100, nindex=1):
         eval_dic['sample_id'] = data_sample
         temp.append(eval_dic)
     df = pd.DataFrame(temp)
-    return df
+    return df, initial_k
+
+def plot_true_vs_k(df, k_array, results_dir, moment="mean", exp_name="yolo"):
+    """
+    Plot the mean of the maps vs k.
+    Input: df (pandas dataframe) with the evaluation metrics.
+           k_array (numpy array) with the k values.
+           output_dir (str) with the path to the output directory.
+           name (str) with the name of the plot.
+    Output: plot
+    """
+    for i in range(len(k_array)-1): 
+        k = int(k_array[i])
+        plt.figure(figsize=(10, 6))
+        plt.plot(df[moment+"_trueha"], df["r_ha_"+str(k)], label="Halpha", marker='o', linestyle='None')
+        plt.plot(df[moment+"_trueoiii"], df["r_oiii_"+str(k)], label="OIII", marker='o', linestyle='None')
+        plt.legend()
+        plt.xlabel(moment+" of true signal")
+        plt.ylabel("r between true and fake at k= "+str(k))
+        name = exp_name+"_"+moment+"_vs_k_"+str(k)
+        plt.title(name)
+        plt.savefig(f"{results_dir}/{name}.png")
+        print(f"Saved plot {results_dir}/{name}.png")
+        plt.show()
+        plt.close()
+
+def plot_k_vs_error(df, k_array, results_dir, error="l1", exp_name="yolo"):
+    """
+    Plot the mean of the maps vs k.
+    Input: df (pandas dataframe) with the evaluation metrics.
+           k_array (numpy array) with the k values.
+           output_dir (str) with the path to the output directory.
+           name (str) with the name of the plot.
+    Output: plot
+    """
+    for i in range(len(k_array)-1): 
+        k = int(k_array[i])
+        plt.figure(figsize=(10, 6))
+        plt.plot(df["r_ha_"+str(k)], df[error+"_ha"], label="Halpha", marker='o', linestyle='None')
+        plt.plot(df["r_oiii_"+str(k)], df[error+"_oiii"], label="OIII", marker='o', linestyle='None')
+        plt.legend()
+        plt.ylabel(error+" of true and fake signal")
+        plt.xlabel("r between true and fake at k= "+str(k))
+        name = exp_name+"_"+error+"_vs_k_"+str(k)
+        plt.title(name)
+        plt.savefig(f"{results_dir}/{name}.png")
+        print(f"Saved plot {results_dir}/{name}.png")
+        plt.show()
+        plt.close()
 
 if __name__ == "__main__":
-    #name = f"pix2pix_2_bs4_ep1_lambda1000_vanilla" # GAN model name
-    #output_dir = f"/mnt/data_cat4/moriwaki/IM2IM/output/{name}"
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
     names = ['test', 'xai_exp_only_using_ha', 'xai_exp_only_using_oiii' ]
     results_dir = "../output/xai_results/"
@@ -153,8 +220,10 @@ if __name__ == "__main__":
         os.makedirs(results_dir)
         
 
-    nrun = 3
+    nrun = 100
     nindex = 1
+    moments = ["mean", "std", "max", "sum"]
+    error_metrics = ["l1", "rmse", "d_sum"]
     container = {}
     for d in names:
         output_dir = os.path.join(base_output_dir, d)
@@ -162,9 +231,13 @@ if __name__ == "__main__":
             print(f"Output directory {output_dir} does not exist.")
             print("The ouput directory stores the output of the GAN needed as input for XAI.")
             exit()
-        df = create_dataframe(output_dir, nrun, nindex)
-        container[d] = df
+        df, k_array = create_dataframe(output_dir, nrun, nindex)
+        for m in moments:
+            plot_true_vs_k(df, k_array, results_dir, moment=m, exp_name=d)
+        for e in error_metrics:
+            plot_k_vs_error(df, k_array, results_dir, error=e, exp_name=d)
+        #container[d] = df
 
-    pdb.set_trace()
+    #pdb.set_trace()
     print("DONE")
     
