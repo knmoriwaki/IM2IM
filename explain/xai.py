@@ -22,8 +22,8 @@ def save_fits_data(image, path, norm=2.0e-7, overwrite=False):
 def read_data(output_dir, suffix=f"run0_index0", ldict=False):
     f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
     f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
-    f_fakeA = f"{output_dir}/test/gen_{suffix}_0.fits"
-    f_fakeB = f"{output_dir}/test/gen_{suffix}_1.fits"
+    f_fakeA = f"{output_dir}/gen_{suffix}_0.fits"
+    f_fakeB = f"{output_dir}/gen_{suffix}_1.fits"
 
     f_list = [ f_realA, f_realB, f_fakeA, f_fakeB ]
     data = [ fits.open( f )[0].data for f in f_list ]
@@ -36,7 +36,7 @@ def read_data(output_dir, suffix=f"run0_index0", ldict=False):
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
     return data
 
-def plot_true_fake_maps(output_dir):
+def plot_true_fake_maps(data, results_dir):
     # reproduced map
     label_list = ["observed", "true A", "true B", "observed (rec)", "reconstructed A", "reconstructed B"]
     vmin = 0
@@ -48,10 +48,12 @@ def plot_true_fake_maps(output_dir):
         ax = axs[int(i/3)][int(i%3)]
         ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
         ax.set_title(l)
-        im = ax.imshow(d, interpolation="none", vmin=vmin, vmax=vmax)   
-        
-    plt.savefig("test_image.png")
-    plt.close()
+        im = ax.imshow(d, interpolation="none", vmin=vmin, vmax=vmax)
+    
+    filename ="test_image.png"    
+    save_path = os.path.join(results_dir, filename)    
+    plt.savefig(save_path)
+
 
 def calc_eval_metrics(data):
     """Calculate the evaluation metrics for the reconstructed maps of one data sample.
@@ -87,6 +89,7 @@ def calc_eval_metrics(data):
     return eval_dic, k_array
 
 def write_zero_fits(output_dir, data):
+    #### Actually this function is not needed. For the experiment I just multiplied the tensors directly with zero!
     """Write fits files with zero values for the reconstructed maps.
     Input: output_dir (str) with the path to the output directory.
            data (dict) with following labels: ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]
@@ -99,12 +102,13 @@ def write_zero_fits(output_dir, data):
     file_name = f"{output_dir}/{suffix}.fits"
     save_fits_data(img, file_name, norm=2.0e-7, overwrite=False)
 
-def create_dataframe(output_dir, suffix_list):
+def create_dataframe(output_dir, nrun=100, nindex=1):
     """
     Reads in several samples and creates a dataframe with the evaluation metrics.
     Input: suffix_list (list) with the ids of the samples.
     Output: df (pandas dataframe) with the evaluation metrics.
     """
+    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
     data = read_data(output_dir, suffix=suffix_list[0], ldict=True)
     _, initial_k = calc_eval_metrics(data)
     temp = []
@@ -120,26 +124,36 @@ def create_dataframe(output_dir, suffix_list):
     return df
 
 if __name__ == "__main__":
-    name = f"pix2pix_2_bs4_ep1_lambda1000_vanilla" # GAN model name
-    output_dir = f"/mnt/data_cat4/moriwaki/IM2IM/output/{name}"
+    #name = f"pix2pix_2_bs4_ep1_lambda1000_vanilla" # GAN model name
+    #output_dir = f"/mnt/data_cat4/moriwaki/IM2IM/output/{name}"
+    base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
+    names = ['test', 'xai_exp_only_using_ha', 'xai_exp_only_using_oiii' ]
     results_dir = "../output/xai_results/"
-    print("Reading data from ", output_dir)
+    print("Reading data from ", base_output_dir)
     print("Writing results to ", results_dir)
 
     # Check if the output directories exists
-    if not os.path.exists(output_dir):
-        print(f"Output directory {output_dir} does not exist.")
+    if not os.path.exists(base_output_dir):
+        print(f"Output directory {base_output_dir} does not exist.")
         print("The ouput directory stores the output of the GAN needed as input for XAI.")
         exit()
     if not os.path.exists(results_dir):
         # Actual output directory to store XAI related results
         os.makedirs(results_dir)
-        data = read_data(output_dir, ldict=True)
+        
 
-    nrun = 100
+    nrun = 3
     nindex = 1
-    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
-    df_data = create_dataframe(output_dir, suffix_list)
-    
+    container = {}
+    for d in names:
+        output_dir = os.path.join(base_output_dir, d)
+        if not os.path.exists(output_dir):
+            print(f"Output directory {output_dir} does not exist.")
+            print("The ouput directory stores the output of the GAN needed as input for XAI.")
+            exit()
+        df = create_dataframe(output_dir, nrun, nindex)
+        container[d] = df
+
+    pdb.set_trace()
     print("DONE")
     
