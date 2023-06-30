@@ -19,7 +19,7 @@ def save_fits_data(image, path, norm=2.0e-7, overwrite=False):
     hdul = fits.HDUList([hdu])
     hdul.writeto(path, overwrite=overwrite)
 
-def read_data(output_dir, suffix=f"run0_index0", ldict=False):
+def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
     f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
     f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
     f_fakeA = f"{output_dir}/gen_{suffix}_0.fits"
@@ -27,13 +27,23 @@ def read_data(output_dir, suffix=f"run0_index0", ldict=False):
 
     f_list = [ f_realA, f_realB, f_fakeA, f_fakeB ]
     data = [ fits.open( f )[0].data for f in f_list ]
-    if ldict:
-        label_list = ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]
+    label_list = ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]    
+    
+    # Check if xai_exp is not none
+    if xai_exp == 'ha':
+        print(xai_exp)
+        data[1] = data[1]*0.0
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
-        data = { l:d for l, d in zip(label_list, data) }
+    elif xai_exp == 'oiii':
+        print(xai_exp)
+        data[0] = data[0]*0.0
+        data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
     else:
-        #label_list = ["observed", "true A", "true B", "observed (rec)", "reconstructed A", "reconstructed B"]
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
+        
+    if ldict:
+        data = { l:d for l, d in zip(label_list, data) }
+        
     return data
 
 def plot_true_fake_maps(data, results_dir):
@@ -53,6 +63,7 @@ def plot_true_fake_maps(data, results_dir):
     filename ="test_image.png"    
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path)
+    plt.show()
 
 
 def calc_eval_metrics(data):
