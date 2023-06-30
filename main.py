@@ -65,7 +65,7 @@ parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, defau
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 
 # XAI parameters #
-parser.add_argument("--xai_exp",  choices=['ha', 'oiii'], type=str, default="ha", help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
 
 args = parser.parse_args()
 
@@ -222,6 +222,19 @@ def train(device):
     model.save_networks('latest')
 
 def test(device):
+    if args.xai_exp == "ha":
+        exp_dir = "xai_exp_only_using_ha"
+    elif args.xai_exp == "oiii":
+        exp_dir = "xai_exp_only_using_oiii"
+    else:
+        exp_dir = "test"
+
+    # Make sure the subdirectory exists, if not create it
+    res_dir = "{}/{}".format(args.results_dir, exp_dir)
+    if not os.path.exists(res_dir):
+        print("# create {}".format(res_dir))
+        os.makedirs(res_dir)
+
 
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
@@ -236,13 +249,6 @@ def test(device):
 
     model.eval()
 
-    if args.xai_exp == "ha":
-        exp_dir = "xai_exp_only_using_ha"
-    elif args.xai_exp == "oiii":
-        exp_dir = "xai_exp_only_using_oiii"
-    else:
-        exp_dir = "test"
-
     ### test ###
     for i, (src, tgt, p) in enumerate(zip(source, target, prefix_list)):
         src = torch.unsqueeze(src, 0)
@@ -250,15 +256,7 @@ def test(device):
         
         model.set_input([src,tgt])
 
-        # Make sure the subdirectory exists, if not create it
-        tmp_fid = "{}/{}".format(args.results_dir, exp_dir)
-        if not os.path.exists(tmp_fid):
-            print("# create {}".format(tmp_fid))
-            os.makedirs(tmp_fid)
-
-
-        fid = "{}/gen_{}".format(tmp_fid, p) 
-        print(fid)
+        fid = "{}/gen_{}".format(res_dir, p) 
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
 
