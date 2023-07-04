@@ -2,6 +2,7 @@ import sys
 import argparse
 import time
 import json
+import pdb
 
 import torch
 import torch.nn as nn
@@ -17,6 +18,7 @@ from utils import *
 
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("--isTrain", dest="isTrain", action='store_true', help="train or test")
+parser.add_argument("--isXAI", dest="isXAI", action='store_true', help="Run XAI Experiment")
 parser.add_argument('--gpu_ids', dest="gpu_ids", type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
 parser.add_argument('--load_iter', dest="load_iter", type=int, default='0', help='If load_iter > 0, the code will load models by iter_[load_iter]. If load_iter = -1, the code will load the latest model')
 
@@ -24,6 +26,7 @@ parser.add_argument("--data_dir", dest="data_dir", type=str, default="./training
 parser.add_argument("--val_dir", dest="val_dir", type=str, default="./val_data", help="Root directory of validation dataset")
 parser.add_argument("--test_dir", dest="test_dir", type=str, default="./test_data", help="Root directory of test dataset")
 parser.add_argument('--output_dir', dest="output_dir", type=str, default='./output', help='all the outputs and models are saved here')
+parser.add_argument('--results_dir', dest="results_dir", type=str, default='./output', help='optional, inference outputs are saved here')
 parser.add_argument('--name', dest="name", type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
 
 parser.add_argument("--norm", dest="norm", type=float, default=1.0, help="Normalization")
@@ -60,10 +63,13 @@ parser.add_argument("--print_freq", dest="print_freq", type=int, default=100, he
 parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, default=5000, help="frequency of saving the latest results")
 parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, default=10000, help="frequency of saving the generated image")
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
+
+# XAI parameters #
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
+
 args = parser.parse_args()
 
 def main():
-
     device = my_init(seed=0, gpu_ids=args.gpu_ids)
 
     if args.model == "pix2pix_2" and args.output_nc != 2:
@@ -76,6 +82,49 @@ def main():
         train(device)
     else:
         test(device)
+
+def xai_load_data(path, prefix_list, device="cuda:0"):
+    """ Modification to load data for XAI experiments using only one input instead of the mixed signal.
+    """
+    start_time = time.time()
+    print("# loading data from {}".format(path), end=" ")
+    data_list = []
+    for label in [ "z1.3_ha", "z2.0_oiii" ]:
+        fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
+        data = load_fits_image(fnames, norm=args.norm, device=device)
+        data_list.append(data)
+    
+    if args.xai_exp == "ha":
+        source = data_list[0]
+        target1 = data_list[0] 
+        target2 = data_list[1]*0.0
+        print("Halpha set as source and target. ", torch.mean(source), torch.mean(target1))
+        print("This value should be zero: ", torch.mean(target2))
+    elif args.xai_exp == "oiii":
+        source = data_list[1]
+        target1 = data_list[0]*0.0 
+        target2 = data_list[1] 
+        print("OIII set as source and target. ", torch.mean(source), torch.mean(target2))
+        print("This value should be zero: ", torch.mean(target1))
+    elif args.xai_exp == "random":
+        source = torch.rand(data_list[0].size())*0.1
+        target1 = data_list[0] 
+        target2 = data_list[1] 
+        print("Random set as source, but not target. ", torch.mean(source), torch.mean(target1), torch.mean(target2))
+    else:
+        print("Error: no label for the XAI expieriment is specified")
+        sys.exit(1)
+
+
+    print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
+
+    if args.model == "pix2pix_2":
+        target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
+    else:
+        target = target2
+    
+    target = torch.clamp(target, min=-1.0, max=1.0)
+    return source, target
 
 def load_data(path, prefix_list, device="cuda:0"):
 
@@ -178,10 +227,24 @@ def train(device):
     model.save_networks('latest')
 
 def test(device):
+    if args.isXAI:
+        exp_dir = "xai_exp_only_using_" + args.xai_exp
+    else:
+        exp_dir = "test"
+
+    # Make sure the subdirectory exists, if not create it
+    res_dir = "{}/{}".format(args.results_dir, exp_dir)
+    if not os.path.exists(res_dir):
+        print("# create {}".format(res_dir))
+        os.makedirs(res_dir)
+
 
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
-    source, target = load_data(args.test_dir, prefix_list, device=device)
+    if args.isXAI:
+        source, target = xai_load_data(args.test_dir, prefix_list, device=device)
+    else:
+        source, target = load_data(args.test_dir, prefix_list, device=device)
 
     ### load model ###
     model = MyModel(args)
@@ -196,7 +259,7 @@ def test(device):
         
         model.set_input([src,tgt])
 
-        fid = "{}/test/gen_{}".format(args.output_dir, p) 
+        fid = "{}/gen_{}".format(res_dir, p) 
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
 

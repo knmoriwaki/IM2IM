@@ -10,5 +10,14 @@ training_data/
 val_data/
 test_data/
 tmp/
-image/.ipynb_checkpoints/
 xxx/
+
+# Jupyter Notebook checkpoints
+image/.ipynb_checkpoints/
+explain/.ipynb_checkpoints/
+
+# Python virtual environments
+*_venv/
+
+# Images
+image/*.png
