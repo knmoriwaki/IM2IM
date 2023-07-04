@@ -125,6 +125,26 @@ def calc_eval_metrics(data):
     
     return eval_dic, k_array
 
+def compare_experiments(data_ref, data_exp, log_bins=True, ldict=False):
+    """
+    Compare the correlation coefficients of two experiments.
+    """
+    r_mix , k_array = compute_r(data_ref["rec"], data_exp["rec"], log_bins=log_bins)
+    r_ha , _ = compute_r(data_ref["fakeHa"], data_exp["fakeHa"], log_bins=log_bins)
+    r_oiii , _ = compute_r(data_ref["fakeOIII"], data_exp["fakeOIII"], log_bins=log_bins)
+
+    if ldict: 
+        r = {}
+        for i in range(len(k_array)-1): 
+            k = k_array[i]
+            r["r_mix_"+str(int(k))]  = r_mix[i]
+            r["r_ha_"+str(int(k))]   = r_ha[i]
+            r["r_oiii_"+str(int(k))] = r_oiii[i]
+        
+        return r_ha, k_array[0:-1]
+    else:
+        return r_mix, r_ha, r_oiii, k_array[0:-1]
+
 def write_zero_fits(output_dir, data):
     #### Actually this function is not needed. For the experiment I just multiplied the tensors directly with zero!
     """Write fits files with zero values for the reconstructed maps.
@@ -207,6 +227,22 @@ def plot_k_vs_error(df, k_array, results_dir, error="l1", exp_name="yolo"):
         print(f"Saved plot {results_dir}/{name}.png")
         plt.show()
         plt.close()
+
+def plot_r_vs_k(data_ref, data_exp, results_dir, title="Insert Title"):
+    r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, log_bins=True, ldict=False)
+    plt.figure(figsize=(10, 6))
+    plt.plot(k, r_mix, 'r', label="reconstructed mixed signal")
+    plt.plot(k, r_ha, 'b', label="reconstructed Halpha signal")
+    plt.plot(k, r_oiii, 'g', label="reconstructed OIII signal")
+    plt.legend()
+    plt.xlabel("k in log bins")
+    plt.ylabel("r between reference and experiment")
+    plt.title(title)
+    name = '_'.join(title.lower().split()).replace(' ', '_')
+    plt.savefig(f"{results_dir}/compare_exp{name}.png")
+    print(f"Saved plot {results_dir}/{name}.png")
+    plt.show()
+    plt.close()
 
 if __name__ == "__main__":
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
