@@ -13,6 +13,7 @@ from torchinfo import summary
 from model import MyModel
 
 from utils import *
+from explain.explainability_functions import xai_load_data, occlusion_load_data
 
 #torch.autograd.set_detect_anomaly(True) ## For debug -- detect places where backpropagation doesn't work properly
 
@@ -65,7 +66,8 @@ parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, defau
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 
 # XAI parameters #
-parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'occlusion'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii) or random input")
+parser.add_argument("--occlusion_size", type=int, default=64, help="Occlusion window size for occlusion sensitivity")
 
 args = parser.parse_args()
 
@@ -83,48 +85,7 @@ def main():
     else:
         test(device)
 
-def xai_load_data(path, prefix_list, device="cuda:0"):
-    """ Modification to load data for XAI experiments using only one input instead of the mixed signal.
-    """
-    start_time = time.time()
-    print("# loading data from {}".format(path), end=" ")
-    data_list = []
-    for label in [ "z1.3_ha", "z2.0_oiii" ]:
-        fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
-        data = load_fits_image(fnames, norm=args.norm, device=device)
-        data_list.append(data)
-    
-    if args.xai_exp == "ha":
-        source = data_list[0]
-        target1 = data_list[0] 
-        target2 = data_list[1]*0.0
-        print("Halpha set as source and target. ", torch.mean(source), torch.mean(target1))
-        print("This value should be zero: ", torch.mean(target2))
-    elif args.xai_exp == "oiii":
-        source = data_list[1]
-        target1 = data_list[0]*0.0 
-        target2 = data_list[1] 
-        print("OIII set as source and target. ", torch.mean(source), torch.mean(target2))
-        print("This value should be zero: ", torch.mean(target1))
-    elif args.xai_exp == "random":
-        source = torch.rand(data_list[0].size())*0.1
-        target1 = data_list[0] 
-        target2 = data_list[1] 
-        print("Random set as source, but not target. ", torch.mean(source), torch.mean(target1), torch.mean(target2))
-    else:
-        print("Error: no label for the XAI expieriment is specified")
-        sys.exit(1)
 
-
-    print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
-
-    if args.model == "pix2pix_2":
-        target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
-    else:
-        target = target2
-    
-    target = torch.clamp(target, min=-1.0, max=1.0)
-    return source, target
 
 def load_data(path, prefix_list, device="cuda:0"):
 
@@ -228,7 +189,7 @@ def train(device):
 
 def test(device):
     if args.isXAI:
-        exp_dir = "xai_exp_only_using_" + args.xai_exp
+        exp_dir = "xai_exp_" + args.xai_exp
     else:
         exp_dir = "test"
 
@@ -242,7 +203,8 @@ def test(device):
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
     if args.isXAI:
-        source, target = xai_load_data(args.test_dir, prefix_list, device=device)
+        #source, target = xai_load_data(args, prefix_list, device=device)
+        source, target = occlusion_load_data(args, prefix_list, device=device)
     else:
         source, target = load_data(args.test_dir, prefix_list, device=device)
 
