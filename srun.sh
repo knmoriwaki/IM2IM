@@ -12,9 +12,11 @@ output_dir=/mnt/data_cat4/moriwaki/IM2IM/output/${name}
 
 norm=2.0e-7
 load_iter=-1
-xai_exp=oiii
+#Possible XAI experiments ha, oiii, random
+xai_exp=random
 
 igpu=1
 
 #python main.py --name $name --gpu_ids $igpu --test_dir $test_dir --output_dir $output_dir --results_dir $results_dir --nrun 100 --model $model --load_iter $load_iter --norm $norm 
 python main.py --name $name --gpu_ids $igpu --test_dir $test_dir --output_dir $output_dir --results_dir $results_dir --nrun 100 --model $model --load_iter $load_iter --norm $norm --isXAI --xai_exp $xai_exp
+

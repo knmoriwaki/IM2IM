@@ -65,7 +65,7 @@ parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, defau
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 
 # XAI parameters #
-parser.add_argument("--xai_exp",  choices=['ha', 'oiii'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
 
 args = parser.parse_args()
 
@@ -106,6 +106,11 @@ def xai_load_data(path, prefix_list, device="cuda:0"):
         target2 = data_list[1] 
         print("OIII set as source and target. ", torch.mean(source), torch.mean(target2))
         print("This value should be zero: ", torch.mean(target1))
+    elif args.xai_exp == "random":
+        source = torch.rand(data_list[0].size())*0.1
+        target1 = data_list[0] 
+        target2 = data_list[1] 
+        print("Random set as source, but not target. ", torch.mean(source), torch.mean(target1), torch.mean(target2))
     else:
         print("Error: no label for the XAI expieriment is specified")
         sys.exit(1)
@@ -222,10 +227,8 @@ def train(device):
     model.save_networks('latest')
 
 def test(device):
-    if args.xai_exp == "ha":
-        exp_dir = "xai_exp_only_using_ha"
-    elif args.xai_exp == "oiii":
-        exp_dir = "xai_exp_only_using_oiii"
+    if args.isXAI:
+        exp_dir = "xai_exp_only_using_" + args.xai_exp
     else:
         exp_dir = "test"
 
