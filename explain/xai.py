@@ -145,6 +145,34 @@ def compare_experiments(data_ref, data_exp, log_bins=True, ldict=False):
     else:
         return r_mix, r_ha, r_oiii, k_array[0:-1]
 
+def compare_exp_testset(ref_dir, exp_dir, nrun=100, nindex=1, log_bins=True):
+    """ Construct a list for plotting the correlation r between two experiments against k for the whole test dataset.
+    Inputs: data directories for both experiments (ref_dir and exp_dir)
+            log_bins switch in case the computation of r should run on log(k)
+            nrun ask Kana
+            nindex ask Kana
+    Outputs: three lists containing the k as first entry and then correlation coefficients correspoding to k 
+    for each sample in the test set
+    """
+    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
+    r_mix_list  = []
+    r_ha_list   = []
+    r_oiii_list = []
+    for data_sample in suffix_list:
+        data_ref = read_data(ref_dir, suffix=data_sample, ldict=True)
+        data_exp = read_data(exp_dir, suffix=data_sample, ldict=True)
+        r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, log_bins=log_bins, ldict=False)
+        if data_sample == suffix_list[0]:
+            r_mix_list.append(k)
+            r_ha_list.append(k)
+            r_oiii_list.append(k)
+        r_mix_list.append(r_mix)
+        r_ha_list.append(r_ha)
+        r_oiii_list.append(r_oiii)
+        
+    return r_mix_list, r_ha_list, r_oiii_list
+
+
 def write_zero_fits(output_dir, data):
     #### Actually this function is not needed. For the experiment I just multiplied the tensors directly with zero!
     """Write fits files with zero values for the reconstructed maps.
@@ -228,7 +256,7 @@ def plot_k_vs_error(df, k_array, results_dir, error="l1", exp_name="yolo"):
         plt.show()
         plt.close()
 
-def plot_r_vs_k(data_ref, data_exp, results_dir, title="Insert Title"):
+def plot_sample_r_vs_k(data_ref, data_exp, results_dir, title="Insert Title"):
     """ This plot needs improvement to plot all data not only one data point.
     """
     r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, log_bins=True, ldict=False)
@@ -279,6 +307,28 @@ def plot_r_vs_r(df_ref, df_exp, k_array, results_dir, exp_name="yolo"):
             print(f"Saved plot {results_dir}/{name}.png")
             plt.show()
             plt.close()
+
+def plot_all_r_vs_k(r_list, results_dir, title="Insert Title"):
+    """ This plot needs improvement to plot all data not only one data point.
+    """
+    mean_r = np.mean(np.array((r_list[1:])), axis=0)
+    k = r_list[0]
+    r = r_list[1:]
+    
+    plt.figure(figsize=(10, 6))
+    for i in range(len(r)):
+        plt.plot(k, r[i], 'c', alpha=0.1)
+    plt.plot(k, mean_r, 'r', label="mean r")
+    plt.legend()
+    plt.xlabel("k in log bins")
+    plt.ylabel("r between reference and experiment")
+    plt.title(title)
+    name = '_'.join(title.lower().split()).replace(' ', '_')
+    plt.savefig(f"{results_dir}/compare_exp{name}.png")
+    print(f"Saved plot {results_dir}/{name}.png")
+    plt.show()
+    plt.close()
+
 
 if __name__ == "__main__":
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
