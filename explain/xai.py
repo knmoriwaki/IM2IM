@@ -264,6 +264,7 @@ def plot_sample_r_vs_k(data_ref, data_exp, results_dir, title="Insert Title"):
     plt.plot(k, r_mix, 'r', label="reconstructed mixed signal")
     plt.plot(k, r_ha, 'b', label="reconstructed Halpha signal")
     plt.plot(k, r_oiii, 'g', label="reconstructed OIII signal")
+    plt.xscale('log')
     plt.legend()
     plt.xlabel("k in log bins")
     plt.ylabel("r between reference and experiment")
@@ -309,7 +310,7 @@ def plot_r_vs_r(df_ref, df_exp, k_array, results_dir, exp_name="yolo"):
             plt.close()
 
 def plot_all_r_vs_k(r_list, results_dir, title="Insert Title"):
-    """ This plot needs improvement to plot all data not only one data point.
+    """ Plots r vs k for all test samples in one plot.
     """
     mean_r = np.mean(np.array((r_list[1:])), axis=0)
     k = r_list[0]
@@ -321,6 +322,7 @@ def plot_all_r_vs_k(r_list, results_dir, title="Insert Title"):
     plt.plot(k, mean_r, 'r', label="mean r")
     plt.legend()
     plt.xlabel("k in log bins")
+    plt.xscale('log')
     plt.ylabel("r between reference and experiment")
     plt.title(title)
     name = '_'.join(title.lower().split()).replace(' ', '_')
@@ -329,6 +331,26 @@ def plot_all_r_vs_k(r_list, results_dir, title="Insert Title"):
     plt.show()
     plt.close()
 
+def plot_r_single_sample(data, suffix, log_bins=True):
+    r_mix , k_array = compute_r(data["obs"], data["rec"], log_bins=log_bins)
+    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=log_bins)
+    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=log_bins)
+    
+    k = k_array[0:-1]
+        
+    plt.figure(figsize=(10, 6))
+    plt.plot(k, r_mix, 'k', label="r mixed signal")
+    plt.plot(k, r_ha, 'b', label="r Halpha signal")
+    plt.plot(k, r_oiii, 'r', label="r OIII signal")
+    plt.legend()
+    plt.xlabel("k in log bins")
+    plt.xscale('log')
+    plt.ylabel("r between true and fake "+suffix)
+    plt.title(suffix)
+    #plt.savefig(f"{results_dir}/compare_exp{suffix}.png")
+    #print(f"Saved plot {results_dir}/{suffix}.png")
+    plt.show()
+    plt.close()
 
 if __name__ == "__main__":
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
