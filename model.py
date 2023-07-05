@@ -2,6 +2,7 @@ import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pdb  
 
 from base_model import BaseModel
 from collections import OrderedDict
@@ -312,3 +313,11 @@ class Pix2Pix(BaseModel):
                 fname = "{}_{:d}.fits".format(fid, iout)
                 save_image(self.fake_B[0][iout], fname, opt.norm, overwrite=overwrite)
       
+    def save_source_image(self, opt, fid, overwrite=False):
+        with torch.no_grad():
+            self.forward()
+            fname = "{}_source.fits".format(fid)
+            save_image(self.real_A[0][0], fname, opt.norm, overwrite=overwrite)
+            for iout in range(opt.output_nc):
+                fname = "{}_target_{:d}.fits".format(fid, iout)
+                save_image(self.real_B[0][iout], fname, opt.norm, overwrite=overwrite)

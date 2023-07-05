@@ -65,7 +65,8 @@ parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, defau
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 
 # XAI parameters #
-parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii)")
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii'], type=str, default=None, 
+                    help="XAI experiments: ha/oiii only using Halpha/OIII as input; random using mixed shuffled input; random_ha/oiii using only shuffled Halpha/OIII as input")
 
 args = parser.parse_args()
 
@@ -107,10 +108,29 @@ def xai_load_data(path, prefix_list, device="cuda:0"):
         print("OIII set as source and target. ", torch.mean(source), torch.mean(target2))
         print("This value should be zero: ", torch.mean(target1))
     elif args.xai_exp == "random":
-        source = torch.rand(data_list[0].size())*0.1
-        target1 = data_list[0] 
-        target2 = data_list[1] 
-        print("Random set as source, but not target. ", torch.mean(source), torch.mean(target1), torch.mean(target2))
+        input1 = data_list[0].to("cpu")
+        input2 = data_list[1].to("cpu")
+        shuffled1 = input1[:, :, torch.randperm(input1.size()[2]), :]
+        shuffled2 = input2[:, :, torch.randperm(input1.size()[2]), :]
+        source = shuffled1 + shuffled2
+        source = source.to(device)
+        target1 = shuffled1.to(device) 
+        target2 = shuffled2.to(device)
+        print("Shuffled source and target to destroy the structure and keep the statistical distribution.")
+    elif args.xai_exp == "random_ha":
+        input1 = data_list[0].to("cpu")
+        shuffled1 = input1[:, :, torch.randperm(input1.size()[2]), :]
+        source = shuffled1.to(device)
+        target1 = source 
+        target2 = data_list[1]*0.0
+        print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
+    elif args.xai_exp == "random_oiii":
+        input2 = data_list[1].to("cpu")
+        shuffled2 = input2[:, :, torch.randperm(input2.size()[2]), :]
+        source = shuffled2.to(device)
+        target1 = data_list[0]*0.0
+        target2 = source
+        print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
     else:
         print("Error: no label for the XAI expieriment is specified")
         sys.exit(1)
@@ -262,6 +282,10 @@ def test(device):
         fid = "{}/gen_{}".format(res_dir, p) 
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
+        if args.xai_exp in ["random", "random_ha", "random_oiii"]:
+            fid = "{}/shuffled_input_{}".format(res_dir, p) 
+            model.save_source_image(args, fid, overwrite=True)
+            print("# save {}_*.fits".format(fid))
 
 if __name__ == "__main__":
     main()
