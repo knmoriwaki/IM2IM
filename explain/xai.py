@@ -229,6 +229,8 @@ def plot_k_vs_error(df, k_array, results_dir, error="l1", exp_name="yolo"):
         plt.close()
 
 def plot_r_vs_k(data_ref, data_exp, results_dir, title="Insert Title"):
+    """ This plot needs improvement to plot all data not only one data point.
+    """
     r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, log_bins=True, ldict=False)
     plt.figure(figsize=(10, 6))
     plt.plot(k, r_mix, 'r', label="reconstructed mixed signal")
@@ -243,6 +245,40 @@ def plot_r_vs_k(data_ref, data_exp, results_dir, title="Insert Title"):
     print(f"Saved plot {results_dir}/{name}.png")
     plt.show()
     plt.close()
+
+def plot_r_vs_r(df_ref, df_exp, k_array, results_dir, exp_name="yolo"):
+    """
+    Compare the reference simlation to experiments in terms of correlation coefficients.
+    Input: df_ref (pandas dataframe) with the evaluation metrics for the reference simulation (x-axis).
+           df_ref (pandas dataframe) with the evaluation metrics for the experiment (y-axis).
+           k_array (numpy array) with the k values.
+           output_dir (str) with the path to the output directory.
+           exp_name (str) with the name of the experiment.
+    Output: plot
+    """
+    for s in ['mix', 'ha', 'oiii']:
+        for i in range(len(k_array)-1): 
+            k = str(int(k_array[i]))
+            # First sort the values in the dataframe from the reference simulation
+            row = "r_"+s+"_"+k
+            sorted_ref =df_ref.sort_values(by=row, ascending=True)
+            sorted_exp = df_exp.loc[sorted_ref.index]
+            vmax = max(sorted_ref[row].max(), sorted_exp[row].max())
+            vmin = min(sorted_ref[row].min(), sorted_exp[row].min())
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(sorted_ref[row], df_exp[row], label=row, marker='o', linestyle='None')
+            plt.legend()
+            plt.xlabel("reference r between true and fake at k= "+str(k))
+            plt.ylabel("experiment r between true and fake at k= "+str(k))
+            plt.xlim(vmin, vmax)
+            plt.ylim(vmin, vmax)
+            name = exp_name+"_r_vs_r_"+row
+            plt.title(name)
+            plt.savefig(f"{results_dir}/{name}.png")
+            print(f"Saved plot {results_dir}/{name}.png")
+            plt.show()
+            plt.close()
 
 if __name__ == "__main__":
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
@@ -277,8 +313,13 @@ if __name__ == "__main__":
             plot_true_vs_k(df, k_array, results_dir, moment=m, exp_name=d)
         for e in error_metrics:
             plot_k_vs_error(df, k_array, results_dir, error=e, exp_name=d)
-        #container[d] = df
+        container[d] = df
 
+    df_ref = container[names[0]]
+    df_ha = container[names[1]]
+    df_oiii = container[names[2]]
+    plot_r_vs_r(df_ref, df_ha, k_array, results_dir, exp_name=names[1])
+    plot_r_vs_r(df_ref, df_oiii, k_array, results_dir, exp_name=names[2])
     #pdb.set_trace()
     print("DONE")
     
