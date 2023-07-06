@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from correlation_coefficient import compute_r
@@ -80,8 +81,9 @@ def read_occ_data(output_dir, n_occluded, suffix=f"run0_index0"):
     assert len(occ_truth) == n_occluded
     fake = data[n_occluded+2:] # followed by 2*n_occluded generated images
     assert len(fake) == 2*n_occluded
+    reshaped_fake = [fake[i:i+2] for i in range(0, len(fake), 2)]
         
-    return [ground_truth, occ_truth, fake]
+    return [ground_truth, occ_truth, reshaped_fake], f_list
 
 def plot_true_fake_maps(data, results_dir):
     # reproduced map
@@ -102,6 +104,51 @@ def plot_true_fake_maps(data, results_dir):
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path)
     plt.show()
+
+def plot_occ_maps(results_dir, data, suffix, patch=None):
+    """
+    Plots for a single occluded example the maps for sanity check.
+    """
+    p_data = []
+    p_data = data[0] # Initialize using the truth
+    occ_truth = data[1] # Has all the occluded sources
+    occ_fake  = data[2] # Has all the generated fakes based on the respective occluded source
+    
+    # add the occluded source input such at the generated fakeA and fakeB
+    # First choose a random patch if the user did not specify a certain patch
+    if patch != None:
+        patch = int(patch)
+    else:
+        # pick random occluded patch for visualization
+        patch = random.randint(0, len(occ_truth))
+
+    print(patch)
+    p_data.append(occ_truth[patch])
+    p_data.append(occ_fake[patch][0]) # Halpha
+    p_data.append(occ_fake[patch][1]) # OIII
+    
+    print(len(p_data))
+    #assert len(p_data) == 6
+
+    label_list = ["observed", "true A", "true B", "occluded input", "reconstructed A", "reconstructed B"]
+    
+    vmin = 0
+    vmax = np.max(p_data[0])
+
+    fig, axs = plt.subplots(2,3)
+    for i, (d, l) in enumerate(zip(p_data, label_list)):    
+        ax = axs[int(i/3)][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(l)
+        ax.imshow(d, interpolation="none", vmin=vmin, vmax=vmax)
+    
+    filename = f"occluded_result_{suffix}_patch{patch}.png"  
+    save_path = os.path.join(results_dir, filename)    
+    plt.savefig(save_path)
+    plt.show()
+    plt.close()
+    del p_data, occ_truth, occ_fake, data
+
 
 
 def calc_eval_metrics(data):
@@ -241,6 +288,22 @@ def plot_k_vs_error(df, k_array, results_dir, error="l1", exp_name="yolo"):
         plt.close()
 
 if __name__ == "__main__":
+    base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
+    names = ['test', 'xai_exp_occlusion' ]
+    results_dir = "../output/xai_occlusion_results/"
+    nrun = 100
+    nindex = 1
+    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
+    ref_dir = os.path.join(base_output_dir, names[0])
+    occ_dir = os.path.join(base_output_dir, names[1])
+    suffix = f"run1_index0"
+
+    data, f_list = read_occ_data(occ_dir, 16, suffix=suffix)
+    #plot_occ_maps(results_dir, data, suffix, patch=1)
+    for p in range(16):
+        plot_occ_maps(results_dir, data, suffix, patch=p)
+
+    exit()
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
     names = ['test', 'xai_exp_only_using_ha', 'xai_exp_only_using_oiii' ]
     results_dir = "../output/xai_results/"
