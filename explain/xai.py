@@ -51,6 +51,38 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         
     return data
 
+def read_occ_data(output_dir, n_occluded, suffix=f"run0_index0"):
+    """
+    Inputs:
+        output_dir: directory where the generated and occluded fits files are stored.
+        n_occluded: number of occluded patches 
+        xai_exp   : optional maybe can be removed?
+        suffix    : this function only uses a single sample so the suffix identifies this sample
+        ldict     : ?? can be removed? how to do it?
+    """
+    
+    f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
+    f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
+    f_list = [ f_realA, f_realB ]
+    for i_occ in range(n_occluded):
+        f_occ_real = f"{output_dir}/occluded_input_{suffix}_occluded{i_occ}_source.fits" #you need to know how many there are!
+        f_list.append(f_occ_real)
+    for i_occ in range(n_occluded):
+        f_fakeA = f"{output_dir}/gen_{suffix}_occluded{i_occ}_0.fits"
+        f_list.append(f_fakeA)
+        f_fakeB = f"{output_dir}/gen_{suffix}_occluded{i_occ}_1.fits"
+        f_list.append(f_fakeB)
+        
+    data = [ fits.open( f )[0].data for f in f_list ] 
+    
+    ground_truth = [ data[0]+data[1], data[0], data[1]]
+    occ_truth = data[2:n_occluded+2] # +2 because the first two entries are the true/real values followed by n_occluded occluded images
+    assert len(occ_truth) == n_occluded
+    fake = data[n_occluded+2:] # followed by 2*n_occluded generated images
+    assert len(fake) == 2*n_occluded
+        
+    return [ground_truth, occ_truth, fake]
+
 def plot_true_fake_maps(data, results_dir):
     # reproduced map
     label_list = ["observed", "true A", "true B", "observed (rec)", "reconstructed A", "reconstructed B"]
