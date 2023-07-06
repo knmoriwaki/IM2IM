@@ -76,27 +76,34 @@ def occlusion_load_data(args, prefix_list, device="cuda:0"):
     start_time = time.time()
     print("# loading data from {}".format(path), end=" ")
     data_list = []
-    p = 'run0_index0'
-    for label in [ "z1.3_ha", "z2.0_oiii" ]:
-        #fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
-        fnames = ["{}/{}_{}.fits".format(path, p, label)]
-        data = load_fits_image(fnames, norm=args.norm, device=device)
-        data_list.append(data)
-    source = data_list[0] + data_list[1]
-    source = occlude_source(source, args.occlusion_size) #(number occluded images, 1, Npix, Npix)
-    target1 = data_list[0] 
-    target2 = data_list[1] 
+    data_list_occ_s = []
+    data_list_occ_t = []
+    for p in prefix_list:
+        for label in [ "z1.3_ha", "z2.0_oiii" ]:
+            fnames = ["{}/{}_{}.fits".format(path, p, label)]
+            data = load_fits_image(fnames, norm=args.norm, device=device)
+            data_list.append(data)
+        source = data_list[0] + data_list[1]
+        source = occlude_source(source, args.occlusion_size) #(number occluded images, 1, Npix, Npix)
+        target1 = data_list[0] 
+        target2 = data_list[1]
+
+        if args.model == "pix2pix_2":
+            tmp = torch.cat((target1, target2), 1) #(1, 2, Npix, Npix)
+            n_occ_img = source.size()[0]
+            target = tmp.expand(n_occ_img, -1, -1, -1) #(number occluded images, 1, Npix, Npix)
+        else:
+            print("Error: Occulsion experiment only works with pix2pix_2 model")
+            print("Please set the --model to pix2pix_2")
+            print("Exiting...")
+            exit()
+        data_list_occ_s.append(source)
+        data_list_occ_t.append(target)
+    
+    source = torch.cat(data_list_occ_s, 0)
+    target = torch.cat(data_list_occ_t, 0)
     print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
 
-    if args.model == "pix2pix_2":
-        tmp = torch.cat((target1, target2), 1) #(1, 2, Npix, Npix)
-        n_occ_img = source.size()[0]
-        target = tmp.expand(n_occ_img, -1, -1, -1) #(number occluded images, 1, Npix, Npix)
-    else:
-        print("Error: Occulsion experiment only works with pix2pix_2 model")
-        print("Please set the --model to pix2pix_2")
-        print("Exiting...")
-        exit()
     target = torch.clamp(target, min=-1.0, max=1.0)
     return source, target
 

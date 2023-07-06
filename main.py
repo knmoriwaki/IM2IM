@@ -188,6 +188,7 @@ def train(device):
     model.save_networks('latest')
 
 def test(device):
+    start_time = time.time()
     if args.isXAI:
         exp_dir = "xai_exp_" + args.xai_exp
     else:
@@ -203,8 +204,13 @@ def test(device):
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
     if args.isXAI:
-        #source, target = xai_load_data(args, prefix_list, device=device)
-        source, target = occlusion_load_data(args, prefix_list, device=device)
+        if args.xai_exp in ["ha", "oiii", "random", "random_ha", "random_oiii"]:
+            source, target = xai_load_data(args, prefix_list, device=device)
+        elif  args.xai_exp=="occlusion":
+            source, target = occlusion_load_data(args, prefix_list, device=device)
+            n_occluded = int(source.size()[2]*source.size()[2]/(args.occlusion_size**2)) # Assumung square image
+            print("# Occluding {}x{} image patches. This leads to {} times more images in the test set".format(args.occlusion_size, args.occlusion_size, n_occluded))
+            prefix_list = [ "run{:d}_index{:d}_occluded{:d}".format(i, j, k) for i in range(args.nrun) for j in range(args.nindex) for k in range(n_occluded) ]
     else:
         source, target = load_data(args.test_dir, prefix_list, device=device)
 
@@ -224,6 +230,13 @@ def test(device):
         fid = "{}/gen_{}".format(res_dir, p) 
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
+        
+        if args.xai_exp in ["random", "random_ha", "random_oiii", "occlusion"]:
+            fid = "{}/occluded_input_{}".format(res_dir, p) 
+            model.save_source_image(args, fid, overwrite=True)
+            print("# save {}_*.fits".format(fid))
+    print('# End of inference. Time Taken: %d sec' % (time.time() - start_time))
+
 
 if __name__ == "__main__":
     main()
