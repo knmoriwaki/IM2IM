@@ -114,8 +114,10 @@ def plot_true_fake_maps(data, results_dir):
     plt.show()
 
 def plot_shuffled_map(df, results_dir, exp_name='test', suffix=f"run0_index0"):
+    #vmin = -2.0e-07
+    #vmax = 2.0e-07
     vmin = 0
-    vmax = 9.0e-08
+    vmax = 9.0e-08  
     
     _, axs = plt.subplots(3,3, figsize=(10, 8))
     
@@ -186,13 +188,13 @@ def calc_eval_metrics(data):
     
     return eval_dic, k_array
 
-def compare_experiments(data_ref, data_exp, log_bins=True, ldict=False):
+def compare_experiments(data_ref, data_exp, nbins=20, log_bins=True, ldict=False):
     """
     Compare the correlation coefficients of two experiments.
     """
-    r_mix , k_array = compute_r(data_ref["rec"], data_exp["rec"], log_bins=log_bins)
-    r_ha , _ = compute_r(data_ref["fakeHa"], data_exp["fakeHa"], log_bins=log_bins)
-    r_oiii , _ = compute_r(data_ref["fakeOIII"], data_exp["fakeOIII"], log_bins=log_bins)
+    r_mix , k_array = compute_r(data_ref["rec"], data_exp["rec"], nbins=nbins, log_bins=log_bins)
+    r_ha , _ = compute_r(data_ref["fakeHa"], data_exp["fakeHa"], nbins=nbins, log_bins=log_bins)
+    r_oiii , _ = compute_r(data_ref["fakeOIII"], data_exp["fakeOIII"], nbins=nbins, log_bins=log_bins)
 
     if ldict: 
         r = {}
@@ -206,7 +208,7 @@ def compare_experiments(data_ref, data_exp, log_bins=True, ldict=False):
     else:
         return r_mix, r_ha, r_oiii, k_array[0:-1]
 
-def compare_exp_testset(ref_dir, exp_dir, nrun=100, nindex=1, log_bins=True):
+def compare_exp_testset(ref_dir, exp_dir, nrun=100, nindex=1, nbins=20, log_bins=True):
     """ Construct a list for plotting the correlation r between two experiments against k for the whole test dataset.
     Inputs: data directories for both experiments (ref_dir and exp_dir)
             log_bins switch in case the computation of r should run on log(k)
@@ -222,7 +224,7 @@ def compare_exp_testset(ref_dir, exp_dir, nrun=100, nindex=1, log_bins=True):
     for data_sample in suffix_list:
         data_ref = read_data(ref_dir, suffix=data_sample, ldict=True)
         data_exp = read_data(exp_dir, suffix=data_sample, ldict=True)
-        r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, log_bins=log_bins, ldict=False)
+        r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, nbins=nbins, log_bins=log_bins, ldict=False)
         if data_sample == suffix_list[0]:
             r_mix_list.append(k)
             r_ha_list.append(k)
