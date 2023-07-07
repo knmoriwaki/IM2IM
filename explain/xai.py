@@ -113,6 +113,25 @@ def plot_true_fake_maps(data, results_dir):
     plt.savefig(save_path)
     plt.show()
 
+def plot_shuffled_map(df, results_dir, exp_name='test', suffix=f"run0_index0"):
+    vmin = 0
+    vmax = 9.0e-08
+    
+    _, axs = plt.subplots(3,3, figsize=(10, 8))
+    
+    col = df.columns
+    for i in range(len(col)):
+        ax = axs[int(i/3)][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        ax.imshow(df[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+        
+    filename =f"{exp_name}_{suffix}_image.png"    
+    save_path = os.path.join(results_dir, filename)    
+    plt.savefig(save_path) 
+    plt.show()
+    plt.close()
+
 
 def calc_eval_metrics(data):
     """Calculate the evaluation metrics for the reconstructed maps of one data sample.
