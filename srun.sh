@@ -12,8 +12,8 @@ output_dir=/mnt/data_cat4/moriwaki/IM2IM/output/${name}
 
 norm=2.0e-7
 load_iter=-1
-#Possible XAI experiments ha, oiii, random, random_ha, random_oiii
-xai_exp=random_oiii
+#Possible XAI experiments ha, oiii, random, random_ha, random_oiii, faint_ha
+xai_exp=faint_ha
 
 igpu=1
 

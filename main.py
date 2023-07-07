@@ -65,7 +65,7 @@ parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, defau
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 
 # XAI parameters #
-parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii'], type=str, default=None, 
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha'], type=str, default=None, 
                     help="XAI experiments: ha/oiii only using Halpha/OIII as input; random using mixed shuffled input; random_ha/oiii using only shuffled Halpha/OIII as input")
 
 args = parser.parse_args()
@@ -131,6 +131,12 @@ def xai_load_data(path, prefix_list, device="cuda:0"):
         target1 = data_list[0]*0.0
         target2 = source
         print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
+    if args.xai_exp == "faint_ha":
+        brightness_factor = 0.6455
+        target1 = data_list[0]*brightness_factor
+        target2 = data_list[1]
+        source = target1 + target2
+        print("Brightness of Halpha scaled down to  ", brightness_factor, " of the original value.")
     else:
         print("Error: no label for the XAI expieriment is specified")
         sys.exit(1)
@@ -248,7 +254,7 @@ def train(device):
 
 def test(device):
     if args.isXAI:
-        exp_dir = "xai_exp_only_using_" + args.xai_exp
+        exp_dir = "xai_exp_" + args.xai_exp
     else:
         exp_dir = "test"
 
@@ -282,7 +288,7 @@ def test(device):
         fid = "{}/gen_{}".format(res_dir, p) 
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
-        if args.xai_exp in ["random", "random_ha", "random_oiii"]:
+        if args.xai_exp in ["random", "random_ha", "random_oiii", "faint_ha"]:
             fid = "{}/shuffled_input_{}".format(res_dir, p) 
             model.save_source_image(args, fid, overwrite=True)
             print("# save {}_*.fits".format(fid))
