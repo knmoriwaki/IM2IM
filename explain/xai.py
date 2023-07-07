@@ -51,7 +51,7 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         
     return data
 
-def read_shuffeled_data(output_dir, suffix=f"run0_index0"):
+def read_shuffled_data(output_dir, suffix=f"run0_index0"):
     """
     Read the original inputs, but also the perturbed inputs as 
     perturbed during testing and the generated images. 
