@@ -51,6 +51,48 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         
     return data
 
+def read_shuffeled_data(output_dir, suffix=f"run0_index0"):
+    """
+    Read the original inputs, but also the perturbed inputs as 
+    perturbed during testing and the generated images. 
+    Returns a pandas dataframe for a single sample.
+    """
+    
+    f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
+    f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
+    f_fakeA = f"{output_dir}/gen_{suffix}_0.fits"
+    f_fakeB = f"{output_dir}/gen_{suffix}_1.fits"
+    f_pertA = f"{output_dir}/shuffled_input_{suffix}_target_0.fits"
+    f_pertB = f"{output_dir}/shuffled_input_{suffix}_target_1.fits"
+    f_pertC = f"{output_dir}/shuffled_input_{suffix}_source.fits"
+    
+    # Construct lists for opening the files
+    f_real = [ f_realA, f_realB ]
+    f_fake = [ f_fakeA, f_fakeB ]
+    f_pert = [ f_pertC, f_pertA, f_pertB ]
+    # Open the files and construct a data list and corresponding keys
+    raw_r  = [ fits.open( f )[0].data for f in f_real ]
+    data_r = [ raw_r[0]+raw_r[1], raw_r[0], raw_r[1] ]
+    keys_r = ['obs', 'realA', 'realB']
+    raw_f  = [ fits.open( f )[0].data for f in f_fake ]
+    data_f = [ raw_f[0]+raw_f[1], raw_f[0], raw_f[1] ]
+    keys_f = ['rec', 'fakeA', 'fakeB']
+    data_p = [ fits.open( f )[0].data for f in f_pert ]
+    keys_p = ['p_s', 'p_tA', 'p_tB'] # p_s: perturbed source, p_t: perturbed target
+    # Create dictionaries with keys and data
+    dict_r = dict(zip(keys_r, data_r))
+    dict_f = dict(zip(keys_f, data_f))
+    dict_p = dict(zip(keys_p, data_p))
+    # Convert to pandas dataframes
+    df_r = pd.DataFrame.from_dict({k: [v] for k, v in dict_r.items()})
+    df_f = pd.DataFrame.from_dict({k: [v] for k, v in dict_f.items()})
+    df_p = pd.DataFrame.from_dict({k: [v] for k, v in dict_p.items()})
+    # Concatenate all into one dataframe
+    df = pd.concat([df_r, df_p, df_f], axis=1)
+    
+    return df
+
+
 def plot_true_fake_maps(data, results_dir):
     # reproduced map
     label_list = ["observed", "true A", "true B", "observed (rec)", "reconstructed A", "reconstructed B"]
