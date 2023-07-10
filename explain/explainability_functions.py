@@ -82,7 +82,6 @@ def occlusion_load_data(args, prefix_list, device="cuda:0"):
         data_list = []
         for label in [ "z1.3_ha", "z2.0_oiii" ]:
             fnames = ["{}/{}_{}.fits".format(path, p, label)]
-            print("Reading", fnames)
             data = load_fits_image(fnames, norm=args.norm, device=device)
             data_list.append(data)
         source = data_list[0] + data_list[1]
