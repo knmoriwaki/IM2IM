@@ -38,10 +38,9 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         print(xai_exp)
         data[0] = data[0]*0.0
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
-    elif xai_exp == 'random':
+    elif xai_exp == 'faint_ha':
         print(xai_exp)
-        data[0] = np.random.random(np.shape(data[0]))*0.1
-        data[1] = np.random.random(np.shape(data[0]))*0.1
+        data[0] = data[0]*0.6455 
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
     else:
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
