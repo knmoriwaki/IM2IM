@@ -52,38 +52,46 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         
     return data
 
-def read_occ_data(output_dir, n_occluded, suffix=f"run0_index0"):
+def read_occ_data(output_dir, n_occ, suffix=f"run0_index0"):
     """
-    Inputs:
-        output_dir: directory where the generated and occluded fits files are stored.
-        n_occluded: number of occluded patches 
-        xai_exp   : optional maybe can be removed?
-        suffix    : this function only uses a single sample so the suffix identifies this sample
-        ldict     : ?? can be removed? how to do it?
+    Read the original inputs, but also the perturbed inputs as 
+    perturbed during testing and the generated images. 
+    Returns a pandas dataframe for a single sample.
     """
     
     f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
     f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
-    f_list = [ f_realA, f_realB ]
-    for i_occ in range(n_occluded):
-        f_occ_real = f"{output_dir}/occluded_input_{suffix}_occluded{i_occ}_source.fits" #you need to know how many there are!
-        f_list.append(f_occ_real)
-    for i_occ in range(n_occluded):
-        f_fakeA = f"{output_dir}/gen_{suffix}_occluded{i_occ}_0.fits"
-        f_list.append(f_fakeA)
-        f_fakeB = f"{output_dir}/gen_{suffix}_occluded{i_occ}_1.fits"
-        f_list.append(f_fakeB)
-        
-    data = [ fits.open( f )[0].data for f in f_list ] 
+    f_fakeA = f"{output_dir}/gen_{suffix}_occluded{n_occ}_0.fits"
+    f_fakeB = f"{output_dir}/gen_{suffix}_occluded{n_occ}_1.fits"
+    f_pertA = f"{output_dir}/occluded_input_{suffix}_occluded{n_occ}_target_0.fits"
+    f_pertB = f"{output_dir}/occluded_input_{suffix}_occluded{n_occ}_target_1.fits"
+    f_pertC = f"{output_dir}/occluded_input_{suffix}_occluded{n_occ}_source.fits"
     
-    ground_truth = [ data[0]+data[1], data[0], data[1]]
-    occ_truth = data[2:n_occluded+2] # +2 because the first two entries are the true/real values followed by n_occluded occluded images
-    assert len(occ_truth) == n_occluded
-    fake = data[n_occluded+2:] # followed by 2*n_occluded generated images
-    assert len(fake) == 2*n_occluded
-    reshaped_fake = [fake[i:i+2] for i in range(0, len(fake), 2)]
-        
-    return [ground_truth, occ_truth, reshaped_fake], f_list
+    # Construct lists for opening the files
+    f_real = [ f_realA, f_realB ]
+    f_fake = [ f_fakeA, f_fakeB ]
+    f_pert = [ f_pertC, f_pertA, f_pertB ]
+    # Open the files and construct a data list and corresponding keys
+    raw_r  = [ fits.open( f )[0].data for f in f_real ]
+    data_r = [ raw_r[0]+raw_r[1], raw_r[0], raw_r[1] ]
+    keys_r = ['obs', 'realA', 'realB']
+    raw_f  = [ fits.open( f )[0].data for f in f_fake ]
+    data_f = [ raw_f[0]+raw_f[1], raw_f[0], raw_f[1] ]
+    keys_f = ['rec', 'fakeA', 'fakeB']
+    data_p = [ fits.open( f )[0].data for f in f_pert ]
+    keys_p = ['p_s', 'p_tA', 'p_tB'] # p_s: perturbed source, p_t: perturbed target
+    # Create dictionaries with keys and data
+    dict_r = dict(zip(keys_r, data_r))
+    dict_f = dict(zip(keys_f, data_f))
+    dict_p = dict(zip(keys_p, data_p))
+    # Convert to pandas dataframes
+    df_r = pd.DataFrame.from_dict({k: [v] for k, v in dict_r.items()})
+    df_f = pd.DataFrame.from_dict({k: [v] for k, v in dict_f.items()})
+    df_p = pd.DataFrame.from_dict({k: [v] for k, v in dict_p.items()})
+    # Concatenate all into one dataframe
+    df = pd.concat([df_r, df_p, df_f], axis=1)
+    
+    return df
 
 def plot_true_fake_maps(data, results_dir):
     # reproduced map
@@ -105,50 +113,26 @@ def plot_true_fake_maps(data, results_dir):
     plt.savefig(save_path)
     plt.show()
 
-def plot_occ_maps(results_dir, data, suffix, patch=None):
-    """
-    Plots for a single occluded example the maps for sanity check.
-    """
-    p_data = []
-    p_data = data[0] # Initialize using the truth
-    occ_truth = data[1] # Has all the occluded sources
-    occ_fake  = data[2] # Has all the generated fakes based on the respective occluded source
-    
-    # add the occluded source input such at the generated fakeA and fakeB
-    # First choose a random patch if the user did not specify a certain patch
-    if patch != None:
-        patch = int(patch)
-    else:
-        # pick random occluded patch for visualization
-        patch = random.randint(0, len(occ_truth))
-
-    print(patch)
-    p_data.append(occ_truth[patch])
-    p_data.append(occ_fake[patch][0]) # Halpha
-    p_data.append(occ_fake[patch][1]) # OIII
-    
-    print(len(p_data))
-    #assert len(p_data) == 6
-
-    label_list = ["observed", "true A", "true B", "occluded input", "reconstructed A", "reconstructed B"]
-    
+def plot_occluded_map(df, results_dir, n_occ, exp_name='occ', suffix=f"run0_index0"):
+    #vmin = -2.0e-07
+    #vmax = 2.0e-07
     vmin = 0
-    vmax = np.max(p_data[0])
-
-    fig, axs = plt.subplots(2,3)
-    for i, (d, l) in enumerate(zip(p_data, label_list)):    
+    vmax = 9.0e-08  
+    
+    _, axs = plt.subplots(3,3, figsize=(10, 8))
+    
+    col = df.columns
+    for i in range(len(col)):
         ax = axs[int(i/3)][int(i%3)]
         ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
-        ax.set_title(l)
-        ax.imshow(d, interpolation="none", vmin=vmin, vmax=vmax)
-    
-    filename = f"occluded_result_{suffix}_patch{patch}.png"  
+        ax.set_title(col[i])
+        ax.imshow(df[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+        
+    filename =f"{exp_name}_{suffix}_occluded{n_occ}_image.png"    
     save_path = os.path.join(results_dir, filename)    
-    plt.savefig(save_path)
+    plt.savefig(save_path) 
     plt.show()
     plt.close()
-    del p_data, occ_truth, occ_fake, data
-
 
 
 def calc_eval_metrics(data):
@@ -298,10 +282,9 @@ if __name__ == "__main__":
     occ_dir = os.path.join(base_output_dir, names[1])
     suffix = f"run1_index0"
 
-    data, f_list = read_occ_data(occ_dir, 16, suffix=suffix)
-    #plot_occ_maps(results_dir, data, suffix, patch=1)
-    for p in range(16):
-        plot_occ_maps(results_dir, data, suffix, patch=p)
+    for i in range(16):
+        df = read_occ_data(occ_dir, i, suffix=suffix)
+        plot_occluded_map(df, results_dir, i, exp_name=names[1], suffix=suffix)
 
     exit()
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
