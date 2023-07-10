@@ -131,14 +131,14 @@ def xai_load_data(path, prefix_list, device="cuda:0"):
         target1 = data_list[0]*0.0
         target2 = source
         print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
-    if args.xai_exp == "faint_ha":
+    elif args.xai_exp == "faint_ha":
         brightness_factor = 0.6455
         target1 = data_list[0]*brightness_factor
         target2 = data_list[1]
         source = target1 + target2
         print("Brightness of Halpha scaled down to  ", brightness_factor, " of the original value.")
     else:
-        print("Error: no label for the XAI expieriment is specified")
+        print("Error: no label for the XAI expieriment is specified", args.xai_exp)
         sys.exit(1)
 
 
