@@ -84,15 +84,16 @@ def occlusion_load_data(args, prefix_list, device="cuda:0"):
             fnames = ["{}/{}_{}.fits".format(path, p, label)]
             data = load_fits_image(fnames, norm=args.norm, device=device)
             data_list.append(data)
-        source = data_list[0] + data_list[1]
-        source = occlude_source(source, args.occlusion_size) #(number occluded images, 1, Npix, Npix)
         target1 = data_list[0] 
-        target2 = data_list[1]
+        target2 = data_list[1]        
+        target1 = occlude(target1, args.occlusion_size) #(number occluded images, 1, Npix, Npix)
+        target2 = occlude(target2, args.occlusion_size) #(number occluded images, 1, Npix, Npix)
+        source = target1 + target2
         
         if args.model == "pix2pix_2":
-            tmp = torch.cat((target1, target2), 1) #(1, 2, Npix, Npix)
-            n_occ_img = source.size()[0]
-            target = tmp.expand(n_occ_img, -1, -1, -1) #(number occluded images, 1, Npix, Npix)
+            target = torch.cat((target1, target2), 1) #(1, 2, Npix, Npix)
+            #n_occ_img = source.size()[0]
+            #target = tmp.expand(n_occ_img, -1, -1, -1) #(number occluded images, 1, Npix, Npix)
         else:
             print("Error: Occulsion experiment only works with pix2pix_2 model")
             print("Please set the --model to pix2pix_2")
@@ -110,7 +111,7 @@ def occlusion_load_data(args, prefix_list, device="cuda:0"):
     return source, target
 
 
-def occlude_source(source, occlusion_size=64, masking_type="mean"):
+def occlude(target, occlusion_size=64, masking_type="mean"):
     """ Occludes the source image.
     Inputs:
         source: torch tensor with the source image of size torch.Size([1, 1, 256, 256])
@@ -119,7 +120,7 @@ def occlude_source(source, occlusion_size=64, masking_type="mean"):
         occluded_source: torch tensor with the occluded source image of size torch.Size([n occluded images, 1, 256, 256])
     """
     if masking_type == "mean":
-        masking_values = source.mean().item()
+        masking_values = target.mean().item()
 
     elif masking_type == "zero":
         masking_values = 0.0
@@ -128,17 +129,17 @@ def occlude_source(source, occlusion_size=64, masking_type="mean"):
         print("Exiting...")
         exit()
 
-    assert occlusion_size in [8, 16, 32, 64], "Currently supported window sizes are 8, 16, 32, 64"
+    assert occlusion_size in [8, 16, 32, 64, 128], "Currently supported window sizes are 8, 16, 32, 64"
     occluded_list = []
-    rows, cols = source.size()[2:]
+    rows, cols = target.size()[2:]
 
     for i in range(0, rows, occlusion_size):
         for j in range(0, cols, occlusion_size):
             # Copy the source tensor
-            tmp = source.clone()
+            tmp = target.clone()
             # Occluding the source with the masking values:
             tmp[0, 0, i:i + occlusion_size, j:j + occlusion_size] = masking_values
             occluded_list.append(tmp) 
 
-    occluded_source = torch.cat(occluded_list, dim=0)
-    return occluded_source
+    occluded_target = torch.cat(occluded_list, dim=0)
+    return occluded_target
