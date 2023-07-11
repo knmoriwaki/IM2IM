@@ -51,7 +51,7 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         
     return data
 
-def read_perturbed_data(output_dir, suffix=f"run0_index0"):
+def read_shuffled_data(output_dir, suffix=f"run0_index0"):
     """
     Read the original inputs, but also the perturbed inputs as 
     perturbed during testing and the generated images. 
@@ -92,6 +92,46 @@ def read_perturbed_data(output_dir, suffix=f"run0_index0"):
     
     return df
 
+def read_occ_data(output_dir, n_occ, suffix=f"run0_index0"):
+    """
+    Read the original inputs, but also the perturbed inputs as 
+    perturbed during testing and the generated images. 
+    Returns a pandas dataframe for a single sample.
+    """
+    
+    f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
+    f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
+    f_fakeA = f"{output_dir}/gen_{suffix}_occluded{n_occ}_0.fits"
+    f_fakeB = f"{output_dir}/gen_{suffix}_occluded{n_occ}_1.fits"
+    f_pertA = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_target_0.fits"
+    f_pertB = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_target_1.fits"
+    f_pertC = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_source.fits"
+    
+    # Construct lists for opening the files
+    f_real = [ f_realA, f_realB ]
+    f_fake = [ f_fakeA, f_fakeB ]
+    f_pert = [ f_pertC, f_pertA, f_pertB ]
+    # Open the files and construct a data list and corresponding keys
+    raw_r  = [ fits.open( f )[0].data for f in f_real ]
+    data_r = [ raw_r[0]+raw_r[1], raw_r[0], raw_r[1] ]
+    keys_r = ['obs', 'realA', 'realB']
+    raw_f  = [ fits.open( f )[0].data for f in f_fake ]
+    data_f = [ raw_f[0]+raw_f[1], raw_f[0], raw_f[1] ]
+    keys_f = ['rec', 'fakeA', 'fakeB']
+    data_p = [ fits.open( f )[0].data for f in f_pert ]
+    keys_p = ['p_s', 'p_tA', 'p_tB'] # p_s: perturbed source, p_t: perturbed target
+    # Create dictionaries with keys and data
+    dict_r = dict(zip(keys_r, data_r))
+    dict_f = dict(zip(keys_f, data_f))
+    dict_p = dict(zip(keys_p, data_p))
+    # Convert to pandas dataframes
+    df_r = pd.DataFrame.from_dict({k: [v] for k, v in dict_r.items()})
+    df_f = pd.DataFrame.from_dict({k: [v] for k, v in dict_f.items()})
+    df_p = pd.DataFrame.from_dict({k: [v] for k, v in dict_p.items()})
+    # Concatenate all into one dataframe
+    df = pd.concat([df_r, df_p, df_f], axis=1)
+    
+    return df
 
 def plot_true_fake_maps(data, results_dir):
     # reproduced map
@@ -167,7 +207,7 @@ def plot_r_occ_sample(ref_dir, occ_dir, results_dir, n_occ, suffix, nbins=20, lo
     l_ha = []
     l_oiii = []
     for i in range(int(n_occ)):
-        df = read_perturbed_data(occ_dir, i, suffix=suffix)
+        df = read_occ_data(occ_dir, i, suffix=suffix)
         r_mix , k_array = compute_r(df["p_s"].values[0], df["rec"].values[0], nbins=nbins, log_bins=log_bins)
         r_ha , _ = compute_r(df["p_tA"].values[0], df["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
         r_oiii , _ = compute_r(df["p_tB"].values[0], df["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
@@ -225,7 +265,7 @@ def calc_importance(ref_dir, occ_dir, n_occ, suffix, nbins=20, log_bins=True):
     l_oiii = []
     for i in range(n_occ):
         # Read occluded data
-        df = read_perturbed_data(occ_dir, i, suffix=suffix)
+        df = read_occ_data(occ_dir, i, suffix=suffix)
         # Calculate correlation coefficients
         r_mix , _ = compute_r(df["p_s"].values[0], df["rec"].values[0], nbins=nbins, log_bins=log_bins)
         r_ha , _ = compute_r(df["p_tA"].values[0], df["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
@@ -584,7 +624,7 @@ if __name__ == "__main__":
     suffix = f"run1_index0"
 
     for i in range(16):
-        df = read_perturbed_data(occ_dir, i, suffix=suffix)
+        df = read_occ_data(occ_dir, i, suffix=suffix)
         plot_occluded_map(df, results_dir, i, exp_name=names[1], suffix=suffix)
 
     exit()
