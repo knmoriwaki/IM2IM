@@ -13,6 +13,7 @@ from torchinfo import summary
 from model import MyModel
 
 from utils import *
+from explain.explainability_functions import xai_load_data, occlusion_load_data
 
 #torch.autograd.set_detect_anomaly(True) ## For debug -- detect places where backpropagation doesn't work properly
 
@@ -65,8 +66,9 @@ parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, defau
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 
 # XAI parameters #
-parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha'], type=str, default=None, 
-                    help="XAI experiments: ha/oiii only using Halpha/OIII as input; random using mixed shuffled input; random_ha/oiii using only shuffled Halpha/OIII as input")
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha', 'occlusion'], type=str, default=None, 
+                    help="The user needs to choose which XAI expierment to perform.")
+parser.add_argument("--occlusion_size", type=int, default=64, help="Occlusion window size for occlusion sensitivity")
 
 args = parser.parse_args()
 
@@ -84,73 +86,6 @@ def main():
     else:
         test(device)
 
-def xai_load_data(path, prefix_list, device="cuda:0"):
-    """ Modification to load data for XAI experiments using only one input instead of the mixed signal.
-    """
-    start_time = time.time()
-    print("# loading data from {}".format(path), end=" ")
-    data_list = []
-    for label in [ "z1.3_ha", "z2.0_oiii" ]:
-        fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
-        data = load_fits_image(fnames, norm=args.norm, device=device)
-        data_list.append(data)
-    
-    if args.xai_exp == "ha":
-        source = data_list[0]
-        target1 = data_list[0] 
-        target2 = data_list[1]*0.0
-        print("Halpha set as source and target. ", torch.mean(source), torch.mean(target1))
-        print("This value should be zero: ", torch.mean(target2))
-    elif args.xai_exp == "oiii":
-        source = data_list[1]
-        target1 = data_list[0]*0.0 
-        target2 = data_list[1] 
-        print("OIII set as source and target. ", torch.mean(source), torch.mean(target2))
-        print("This value should be zero: ", torch.mean(target1))
-    elif args.xai_exp == "random":
-        input1 = data_list[0].to("cpu")
-        input2 = data_list[1].to("cpu")
-        shuffled1 = input1[:, :, torch.randperm(input1.size()[2]), :]
-        shuffled2 = input2[:, :, torch.randperm(input1.size()[2]), :]
-        source = shuffled1 + shuffled2
-        source = source.to(device)
-        target1 = shuffled1.to(device) 
-        target2 = shuffled2.to(device)
-        print("Shuffled source and target to destroy the structure and keep the statistical distribution.")
-    elif args.xai_exp == "random_ha":
-        input1 = data_list[0].to("cpu")
-        shuffled1 = input1[:, :, torch.randperm(input1.size()[2]), :]
-        source = shuffled1.to(device)
-        target1 = source 
-        target2 = data_list[1]*0.0
-        print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
-    elif args.xai_exp == "random_oiii":
-        input2 = data_list[1].to("cpu")
-        shuffled2 = input2[:, :, torch.randperm(input2.size()[2]), :]
-        source = shuffled2.to(device)
-        target1 = data_list[0]*0.0
-        target2 = source
-        print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
-    elif args.xai_exp == "faint_ha":
-        brightness_factor = 0.6455
-        target1 = data_list[0]*brightness_factor
-        target2 = data_list[1]
-        source = target1 + target2
-        print("Brightness of Halpha scaled down to  ", brightness_factor, " of the original value.")
-    else:
-        print("Error: no label for the XAI expieriment is specified", args.xai_exp)
-        sys.exit(1)
-
-
-    print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
-
-    if args.model == "pix2pix_2":
-        target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
-    else:
-        target = target2
-    
-    target = torch.clamp(target, min=-1.0, max=1.0)
-    return source, target
 
 def load_data(path, prefix_list, device="cuda:0"):
 
@@ -253,6 +188,7 @@ def train(device):
     model.save_networks('latest')
 
 def test(device):
+    start_time = time.time()
     if args.isXAI:
         exp_dir = "xai_exp_" + args.xai_exp
     else:
@@ -268,7 +204,13 @@ def test(device):
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
     if args.isXAI:
-        source, target = xai_load_data(args.test_dir, prefix_list, device=device)
+        if args.xai_exp in ["ha", "oiii", "random", "random_ha", "random_oiii"]:
+            source, target = xai_load_data(args, prefix_list, device=device)
+        elif  args.xai_exp=="occlusion":
+            source, target = occlusion_load_data(args, prefix_list, device=device)
+            n_occluded = int(source.size()[2]*source.size()[2]/(args.occlusion_size**2)) # Assumung square image
+            print("# Occluding {}x{} image patches. This leads to {} times more images in the test set".format(args.occlusion_size, args.occlusion_size, n_occluded))
+            prefix_list = [ "run{:d}_index{:d}_occluded{:d}".format(i, j, k) for i in range(args.nrun) for j in range(args.nindex) for k in range(n_occluded) ]
     else:
         source, target = load_data(args.test_dir, prefix_list, device=device)
 
@@ -288,10 +230,12 @@ def test(device):
         fid = "{}/gen_{}".format(res_dir, p) 
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
-        if args.xai_exp in ["random", "random_ha", "random_oiii", "faint_ha"]:
-            fid = "{}/shuffled_input_{}".format(res_dir, p) 
+        
+        if args.xai_exp in ["random", "random_ha", "random_oiii", "faint_ha", "occlusion"]:
+            fid = "{}/perturbed_input_{}".format(res_dir, p) 
             model.save_source_image(args, fid, overwrite=True)
             print("# save {}_*.fits".format(fid))
+    print('# End of inference. Time Taken: %d sec' % (time.time() - start_time))
 
 if __name__ == "__main__":
     main()
