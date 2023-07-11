@@ -204,7 +204,7 @@ def test(device):
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
     if args.isXAI:
-        if args.xai_exp in ["ha", "oiii", "random", "random_ha", "random_oiii"]:
+        if args.xai_exp in ["ha", "oiii", "random", "random_ha", "random_oiii", "faint_ha"]:
             source, target = xai_load_data(args, prefix_list, device=device)
         elif  args.xai_exp=="occlusion":
             source, target = occlusion_load_data(args, prefix_list, device=device)

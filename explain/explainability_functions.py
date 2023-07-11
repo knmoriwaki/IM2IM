@@ -11,7 +11,9 @@ from utils import load_fits_image
 def xai_load_data(args, prefix_list, device="cuda:0"):
     """ Modification to load data for XAI experiments using only one input instead of the mixed signal.
     """
+    path = args.test_dir
     start_time = time.time()
+    
     print("# loading data from {}".format(path), end=" ")
     data_list = []
     for label in [ "z1.3_ha", "z2.0_oiii" ]:
@@ -64,6 +66,16 @@ def xai_load_data(args, prefix_list, device="cuda:0"):
     else:
         print("Error: no label for the XAI expieriment is specified", args.xai_exp)
         sys.exit(1)
+
+    print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
+
+    if args.model == "pix2pix_2":
+        target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
+    else:
+        target = target2
+    
+    target = torch.clamp(target, min=-1.0, max=1.0)
+    return source, target    
 
 def occlusion_load_data(args, prefix_list, device="cuda:0"):
     """ Modification to load data for occlusion experiments.
