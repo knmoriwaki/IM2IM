@@ -134,6 +134,141 @@ def plot_occluded_map(df, results_dir, n_occ, exp_name='occ', suffix=f"run0_inde
     plt.show()
     plt.close()
 
+def plot_r_occ_sample(ref_dir, occ_dir, results_dir, n_occ, suffix, nbins=20, log_bins=True):
+    """
+    Inputs: df (dataframe holding the real, perturbed (occluded) and generated images)
+    """
+    plt.figure(figsize=(10, 6))
+    
+    # Plot occluded 
+    l_mix = []
+    l_ha = []
+    l_oiii = []
+    for i in range(int(n_occ)):
+        df = read_occ_data(occ_dir, i, suffix=suffix)
+        r_mix , k_array = compute_r(df["p_s"].values[0], df["rec"].values[0], nbins=nbins, log_bins=log_bins)
+        r_ha , _ = compute_r(df["p_tA"].values[0], df["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+        r_oiii , _ = compute_r(df["p_tB"].values[0], df["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+        k = k_array[0:-1]
+        plt.plot(k, r_mix, 'k', alpha=0.05)
+        plt.plot(k, r_ha, 'b', alpha=0.1)
+        plt.plot(k, r_oiii, 'r', alpha=0.1)
+        l_mix.append(r_mix)
+        l_ha.append(r_ha)
+        l_oiii.append(r_oiii)
+        
+    mean_mix = np.mean(l_mix, axis=0)
+    mean_ha = np.mean(l_ha, axis=0)
+    mean_oiii = np.mean(l_oiii, axis=0)
+    plt.plot(k, mean_mix, '--', color='k', label="mixed signal")
+    plt.plot(k, mean_ha, '--', color='b', label="Ha signal")
+    plt.plot(k, mean_oiii, '--', color='r', label="OIII signal")
+    
+    # Plot reference
+    data = read_data(ref_dir, suffix=suffix, ldict=True)
+    r_mix , _ = compute_r(data["obs"], data["rec"], log_bins=log_bins)
+    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=log_bins)
+    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=log_bins)
+    
+    plt.plot(k, r_mix, color='k', label="ref mix")
+    plt.plot(k, r_ha, color='b', label="ref Ha")
+    plt.plot(k, r_oiii, color='r', label="ref OIII")
+    
+    plt.legend()
+    plt.xlabel("k in log bins")
+    plt.xscale('log')
+    plt.ylabel("r between true and fake "+suffix)
+    plt.title(suffix)
+    plt.savefig(f"{results_dir}/compare_occlusion_exp_{suffix}.png")
+    print(f"Saved plot {results_dir}/compare_occlusion_exp_{suffix}.png")
+    plt.show()
+    plt.close()
+
+def calc_importance(ref_dir, occ_dir, n_occ, suffix, nbins=20, log_bins=True):
+    """
+    I want to assign an importance defied by the difference between 
+    reference(r_(true-fake)) and experiment(r_(perturbed_true-fake)) to each patch in the occlusion
+    """ 
+    
+    # Read reference data
+    data = read_data(ref_dir, suffix=suffix, ldict=True)
+    ref_mix , _ = compute_r(data["obs"], data["rec"], log_bins=log_bins)
+    ref_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=log_bins)
+    ref_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=log_bins)
+
+    im_size = 256
+
+    l_mix = []
+    l_ha = []
+    l_oiii = []
+    for i in range(n_occ):
+        # Read occluded data
+        df = read_occ_data(occ_dir, i, suffix=suffix)
+        # Calculate correlation coefficients
+        r_mix , _ = compute_r(df["p_s"].values[0], df["rec"].values[0], nbins=nbins, log_bins=log_bins)
+        r_ha , _ = compute_r(df["p_tA"].values[0], df["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+        r_oiii , _ = compute_r(df["p_tB"].values[0], df["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+        # Calculate "Score"
+        ds_mix = np.sum(abs(ref_mix - r_mix))
+        ds_ha = np.sum(abs(ref_ha - r_ha))
+        ds_oiii = np.sum(abs(ref_oiii - r_oiii))
+        # Store
+        l_mix.append(ds_mix)
+        l_ha.append(ds_ha)
+        l_oiii.append(ds_oiii)
+       
+        
+    im_mix  = np.zeros((im_size,im_size))
+    im_ha   = np.zeros((im_size,im_size))
+    im_oiii = np.zeros((im_size,im_size))
+    
+    rows, cols = np.shape(im_mix)
+    occlusion_size = int(np.sqrt(im_size*im_size/n_occ))
+    s = 0
+    for i in range(0, rows, occlusion_size):
+        for j in range(0, cols, occlusion_size):
+            # Occluding the source with the masking values:
+            im_mix[i:i + occlusion_size, j:j + occlusion_size] = l_mix[s]
+            im_ha[i:i + occlusion_size, j:j + occlusion_size] = l_ha[s]
+            im_oiii[i:i + occlusion_size, j:j + occlusion_size] = l_oiii[s]
+            s += 1
+
+    return im_mix, im_ha, im_oiii
+
+def plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir):
+    # reproduced map
+    label_list = ["mix", "Ha", "OIII"]
+    vmin = 0.0
+    vmax = 3.0
+
+    fig, axs = plt.subplots(1,3, figsize=(10, 6))
+
+    ax = axs[0]
+    ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+    ax.set_title(label_list[0])
+    im = ax.imshow(im_mix, interpolation="none")#, vmin=vmin, vmax=vmax)
+    cbar = plt.colorbar(im, ax=ax, orientation='horizontal', pad=0.2)
+    
+    ax = axs[1]
+    ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+    ax.set_title(label_list[1])
+    im = ax.imshow(im_ha, interpolation="none")#, vmin=vmin, vmax=vmax)
+    cbar = plt.colorbar(im, ax=ax, orientation='horizontal', pad=0.2)
+    
+    ax = axs[2]
+    ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+    ax.set_title(label_list[2])
+    im = ax.imshow(im_oiii, interpolation="none")#, vmin=vmin, vmax=vmax)
+    
+    cbar = plt.colorbar(im, ax=ax, orientation='horizontal', pad=0.2)
+    #cbar.set_label('Sum difference r')
+    # Adjust spacing between subplots
+    plt.tight_layout()
+    
+    filename ="occlusion_sensitivity_image.png"    
+    save_path = os.path.join(results_dir, filename)    
+    plt.savefig(save_path)
+    plt.show()
 
 def calc_eval_metrics(data):
     """Calculate the evaluation metrics for the reconstructed maps of one data sample.
