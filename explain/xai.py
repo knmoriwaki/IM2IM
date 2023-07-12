@@ -27,8 +27,14 @@ def plot_true_fake_maps(data, results_dir, exp_name='test', suffix=f"run0_index0
     DataFrame created by XAIDataLoader.
     
     """
-    df_real = data.real
+
     df_fake = data.fake
+    df_real = data.real
+    if data.pert is not None:
+        # In case that the source data was pertubed we want to see the perturbed
+        # data instead of the original (real) data
+        df_real = data.pert 
+    
     vmin = 0
     vmax = 9.0e-08
     #vmax = np.max(df_real['obs'].values[0])
@@ -496,9 +502,27 @@ def plot_all_r_vs_k(r_list, results_dir, title="Insert Title"):
     plt.close()
 
 def plot_r_single_sample(data, suffix, log_bins=True):
-    r_mix , k_array = compute_r(data["obs"], data["rec"], log_bins=log_bins)
-    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=log_bins)
-    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=log_bins)
+    """
+    Plot the r values for a single sample.
+    Input: data (pandas dataframe) with the real and fake values.
+    """
+
+    df_fake = data.fake
+    df_real = data.real
+    m = df_real["obs"].values[0]
+    a = df_real["realA"].values[0]
+    b = df_real["realB"].values[0]
+    if data.pert is not None:
+        # In case that the source data was pertubed we want to see the perturbed
+        # data instead of the original (real) data
+        df_pert = data.pert 
+        m = df_pert["p_s"].values[0]
+        a = df_pert["p_tA"].values[0]
+        b = df_pert["p_tB"].values[0]
+
+    r_mix , k_array = compute_r(m, df_fake["rec"].values[0], log_bins=log_bins)
+    r_ha , _ = compute_r(a, df_fake["fakeA"].values[0], log_bins=log_bins)
+    r_oiii , _ = compute_r(b, df_fake["fakeB"].values[0], log_bins=log_bins)
     
     k = k_array[0:-1]
         
