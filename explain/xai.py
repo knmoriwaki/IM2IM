@@ -5,6 +5,7 @@ import random
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from correlation_coefficient import compute_r
+from xai_dataloader import XAIDataLoader
 import pdb
 
 def save_fits_data(image, path, norm=2.0e-7, overwrite=False):
@@ -20,138 +21,39 @@ def save_fits_data(image, path, norm=2.0e-7, overwrite=False):
     hdul = fits.HDUList([hdu])
     hdul.writeto(path, overwrite=overwrite)
 
-def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
-    f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
-    f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
-    f_fakeA = f"{output_dir}/gen_{suffix}_0.fits"
-    f_fakeB = f"{output_dir}/gen_{suffix}_1.fits"
-
-    f_list = [ f_realA, f_realB, f_fakeA, f_fakeB ]
-    data = [ fits.open( f )[0].data for f in f_list ]
-    label_list = ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]    
+def plot_true_fake_maps(data, results_dir, exp_name='test', suffix=f"run0_index0"):
+    """ 
+    Plots the true maps and the corresponding fake maps. Expects the data in form of the 
+    DataFrame created by XAIDataLoader.
     
-    # Check if xai_exp is not none
-    if xai_exp == 'ha':
-        print(xai_exp)
-        data[1] = data[1]*0.0
-        data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
-    elif xai_exp == 'oiii':
-        print(xai_exp)
-        data[0] = data[0]*0.0
-        data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
-    elif xai_exp == 'faint_ha':
-        print(xai_exp)
-        data[0] = data[0]*0.6455 
-        data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
-    else:
-        data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
-        
-    if ldict:
-        data = { l:d for l, d in zip(label_list, data) }
-        
-    return data
-
-def read_shuffled_data(output_dir, suffix=f"run0_index0"):
     """
-    Read the original inputs, but also the perturbed inputs as 
-    perturbed during testing and the generated images. 
-    Returns a pandas dataframe for a single sample.
-    """
-    
-    f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
-    f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
-    f_fakeA = f"{output_dir}/gen_{suffix}_0.fits"
-    f_fakeB = f"{output_dir}/gen_{suffix}_1.fits"
-    f_pertA = f"{output_dir}/perturbed_input_{suffix}_target_0.fits"
-    f_pertB = f"{output_dir}/perturbed_input_{suffix}_target_1.fits"
-    f_pertC = f"{output_dir}/perturbed_input_{suffix}_source.fits"
-    
-    # Construct lists for opening the files
-    f_real = [ f_realA, f_realB ]
-    f_fake = [ f_fakeA, f_fakeB ]
-    f_pert = [ f_pertC, f_pertA, f_pertB ]
-    # Open the files and construct a data list and corresponding keys
-    raw_r  = [ fits.open( f )[0].data for f in f_real ]
-    data_r = [ raw_r[0]+raw_r[1], raw_r[0], raw_r[1] ]
-    keys_r = ['obs', 'realA', 'realB']
-    raw_f  = [ fits.open( f )[0].data for f in f_fake ]
-    data_f = [ raw_f[0]+raw_f[1], raw_f[0], raw_f[1] ]
-    keys_f = ['rec', 'fakeA', 'fakeB']
-    data_p = [ fits.open( f )[0].data for f in f_pert ]
-    keys_p = ['p_s', 'p_tA', 'p_tB'] # p_s: perturbed source, p_t: perturbed target
-    # Create dictionaries with keys and data
-    dict_r = dict(zip(keys_r, data_r))
-    dict_f = dict(zip(keys_f, data_f))
-    dict_p = dict(zip(keys_p, data_p))
-    # Convert to pandas dataframes
-    df_r = pd.DataFrame.from_dict({k: [v] for k, v in dict_r.items()})
-    df_f = pd.DataFrame.from_dict({k: [v] for k, v in dict_f.items()})
-    df_p = pd.DataFrame.from_dict({k: [v] for k, v in dict_p.items()})
-    # Concatenate all into one dataframe
-    df = pd.concat([df_r, df_p, df_f], axis=1)
-    
-    return df
-
-def read_occ_data(output_dir, n_occ, suffix=f"run0_index0"):
-    """
-    Read the original inputs, but also the perturbed inputs as 
-    perturbed during testing and the generated images. 
-    Returns a pandas dataframe for a single sample.
-    """
-    
-    f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
-    f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
-    f_fakeA = f"{output_dir}/gen_{suffix}_occluded{n_occ}_0.fits"
-    f_fakeB = f"{output_dir}/gen_{suffix}_occluded{n_occ}_1.fits"
-    f_pertA = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_target_0.fits"
-    f_pertB = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_target_1.fits"
-    f_pertC = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_source.fits"
-    
-    # Construct lists for opening the files
-    f_real = [ f_realA, f_realB ]
-    f_fake = [ f_fakeA, f_fakeB ]
-    f_pert = [ f_pertC, f_pertA, f_pertB ]
-    # Open the files and construct a data list and corresponding keys
-    raw_r  = [ fits.open( f )[0].data for f in f_real ]
-    data_r = [ raw_r[0]+raw_r[1], raw_r[0], raw_r[1] ]
-    keys_r = ['obs', 'realA', 'realB']
-    raw_f  = [ fits.open( f )[0].data for f in f_fake ]
-    data_f = [ raw_f[0]+raw_f[1], raw_f[0], raw_f[1] ]
-    keys_f = ['rec', 'fakeA', 'fakeB']
-    data_p = [ fits.open( f )[0].data for f in f_pert ]
-    keys_p = ['p_s', 'p_tA', 'p_tB'] # p_s: perturbed source, p_t: perturbed target
-    # Create dictionaries with keys and data
-    dict_r = dict(zip(keys_r, data_r))
-    dict_f = dict(zip(keys_f, data_f))
-    dict_p = dict(zip(keys_p, data_p))
-    # Convert to pandas dataframes
-    df_r = pd.DataFrame.from_dict({k: [v] for k, v in dict_r.items()})
-    df_f = pd.DataFrame.from_dict({k: [v] for k, v in dict_f.items()})
-    df_p = pd.DataFrame.from_dict({k: [v] for k, v in dict_p.items()})
-    # Concatenate all into one dataframe
-    df = pd.concat([df_r, df_p, df_f], axis=1)
-    
-    return df
-
-def plot_true_fake_maps(data, results_dir):
-    # reproduced map
-    label_list = ["observed", "true A", "true B", "observed (rec)", "reconstructed A", "reconstructed B"]
+    df_real = data.real
+    df_fake = data.fake
     vmin = 0
-    #vmax = np.max(data[0])
     vmax = 9.0e-08
+    #vmax = np.max(df_real['obs'].values[0])
 
-    fig, axs = plt.subplots(2,3)
+    _, axs = plt.subplots(2,3, figsize=(10, 8))
 
-    for i, (d, l) in enumerate(zip(data, label_list)):    
-        ax = axs[int(i/3)][int(i%3)]
+    col = df_real.columns
+    for i in range(len(col)):    
+        ax = axs[0][int(i%3)]
         ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
-        ax.set_title(l)
-        im = ax.imshow(d, interpolation="none", vmin=vmin, vmax=vmax)
-    
-    filename ="test_image.png"    
+        ax.set_title(col[i])
+        ax.imshow(df_real[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+
+    col = df_fake.columns
+    for i in range(len(col)):    
+        ax = axs[1][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        ax.imshow(df_fake[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+        
+    filename =f"true_fake_maps_{exp_name}_{suffix}_image.png"    
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path)
     plt.show()
+    plt.close()
 
 def plot_shuffled_map(df, results_dir, exp_name='test', suffix=f"run0_index0"):
     #vmin = -2.0e-07
@@ -389,9 +291,9 @@ def compare_experiments(data_ref, data_exp, nbins=20, log_bins=True, ldict=False
     """
     Compare the correlation coefficients of two experiments.
     """
-    r_mix , k_array = compute_r(data_ref["rec"], data_exp["rec"], nbins=nbins, log_bins=log_bins)
-    r_ha , _ = compute_r(data_ref["fakeHa"], data_exp["fakeHa"], nbins=nbins, log_bins=log_bins)
-    r_oiii , _ = compute_r(data_ref["fakeOIII"], data_exp["fakeOIII"], nbins=nbins, log_bins=log_bins)
+    r_mix , k_array = compute_r(data_ref["rec"].values[0], data_exp["rec"].values[0], nbins=nbins, log_bins=log_bins)
+    r_ha , _ = compute_r(data_ref["fakeA"].values[0], data_exp["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+    r_oiii , _ = compute_r(data_ref["fakeB"].values[0], data_exp["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
 
     if ldict: 
         r = {}
@@ -405,7 +307,7 @@ def compare_experiments(data_ref, data_exp, nbins=20, log_bins=True, ldict=False
     else:
         return r_mix, r_ha, r_oiii, k_array[0:-1]
 
-def compare_exp_testset(ref_dir, exp_dir, nrun=100, nindex=1, nbins=20, log_bins=True):
+def compare_exp_testset(output_dir, ref_name, exp_name, nrun=100, nindex=1, nbins=20, log_bins=True):
     """ Construct a list for plotting the correlation r between two experiments against k for the whole test dataset.
     Inputs: data directories for both experiments (ref_dir and exp_dir)
             log_bins switch in case the computation of r should run on log(k)
@@ -414,13 +316,15 @@ def compare_exp_testset(ref_dir, exp_dir, nrun=100, nindex=1, nbins=20, log_bins
     Outputs: three lists containing the k as first entry and then correlation coefficients correspoding to k 
     for each sample in the test set
     """
+    
     suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
     r_mix_list  = []
     r_ha_list   = []
     r_oiii_list = []
+    
     for data_sample in suffix_list:
-        data_ref = read_data(ref_dir, suffix=data_sample, ldict=True)
-        data_exp = read_data(exp_dir, suffix=data_sample, ldict=True)
+        data_ref = XAIDataLoader(output_dir, ref_name, data_sample).fake
+        data_exp = XAIDataLoader(output_dir, exp_name, data_sample).fake
         r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, nbins=nbins, log_bins=log_bins, ldict=False)
         if data_sample == suffix_list[0]:
             r_mix_list.append(k)

@@ -13,7 +13,7 @@ class XAIDataLoader:
     I decided that it will only support converting the data into pandas dataframes. 
     No lists or dictionaries!
     """
-    def __init__(self, output_dir, exp_name, suffix, n_occ=None):
+    def __init__(self, output_dir, exp_name, suffix="run71_index0", n_occ=None):
         self.output_dir = output_dir
         self.exp_name = exp_name
         self.exp_dir = os.path.join(self.output_dir, self.exp_name)
@@ -86,8 +86,9 @@ class XAIDataLoader:
             tmpd = dict(zip(keys, data))
             self.pert = pd.DataFrame.from_dict({k: [v] for k, v in tmpd.items()})
         except FileNotFoundError as e:
-            print(e)
-            print("Loading perturbed inputs failed. Check if the files exist.")
+            pass
+            #print(e)
+            #print("Loading perturbed inputs failed. Check if the files exist.")
             self.pert = None
             
     def load_single_occluded_input(self, n):
