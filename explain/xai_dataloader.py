@@ -46,8 +46,8 @@ class XAIDataLoader:
         """
         Loads a single sample containing the generated fake images.
         """
-        self.f_fakeA = f"{self.exp_dir}/gen_{suffix}_0.fits"
-        self.f_fakeB = f"{self.exp_dir}/gen_{suffix}_1.fits"
+        self.f_fakeA = f"{self.exp_dir}/gen_{self.suffix}_0.fits"
+        self.f_fakeB = f"{self.exp_dir}/gen_{self.suffix}_1.fits"
         f_list = [ self.f_fakeA, self.f_fakeB ]
         data = [ fits.open( f )[0].data for f in f_list ]
         data = [ data[0]+data[1], data[0], data[1] ]
@@ -55,10 +55,9 @@ class XAIDataLoader:
         tmpd = dict(zip(keys, data))
         self.fake = pd.DataFrame.from_dict({k: [v] for k, v in tmpd.items()})
 
-    
     def load_single_occluded_fake(self, n):
-        self.f_fakeA = f"{self.exp_dir}/gen_{suffix}_occluded{n}_0.fits"
-        self.f_fakeB = f"{self.exp_dir}/gen_{suffix}_occluded{n}_1.fits"
+        self.f_fakeA = f"{self.exp_dir}/gen_{self.suffix}_occluded{n}_0.fits"
+        self.f_fakeB = f"{self.exp_dir}/gen_{self.suffix}_occluded{n}_1.fits"
         f_list = [ self.f_fakeA, self.f_fakeB ]
         try:
             data = [ fits.open( f )[0].data for f in f_list ]
@@ -76,9 +75,9 @@ class XAIDataLoader:
         Loads a single sample containing the perturbed inputs. 
         Checks if these exist.
         """
-        self.f_pertA = f"{self.exp_dir}/perturbed_input_{suffix}_target_0.fits"
-        self.f_pertB = f"{self.exp_dir}/perturbed_input_{suffix}_target_1.fits"
-        self.f_pertC = f"{self.exp_dir}/perturbed_input_{suffix}_source.fits"
+        self.f_pertA = f"{self.exp_dir}/perturbed_input_{self.suffix}_target_0.fits"
+        self.f_pertB = f"{self.exp_dir}/perturbed_input_{self.suffix}_target_1.fits"
+        self.f_pertC = f"{self.exp_dir}/perturbed_input_{self.suffix}_source.fits"
         f_list = [ self.f_pertC, self.f_pertA, self.f_pertB ] # ! load C first
 
         try:
@@ -95,21 +94,31 @@ class XAIDataLoader:
         """
         Loads a single sample and single instance of perturbed (occluded) inputs.
         """
-        self.f_pertA = f"{self.exp_dir}/perturbed_input_{suffix}_occluded{n}_target_0.fits"
-        self.f_pertB = f"{self.exp_dir}/perturbed_input_{suffix}_occluded{n}_target_1.fits"
-        self.f_pertC = f"{self.exp_dir}/perturbed_input_{suffix}_occluded{n}_source.fits"
+        self.f_pertA = f"{self.exp_dir}/perturbed_input_{self.suffix}_occluded{n}_target_0.fits"
+        self.f_pertB = f"{self.exp_dir}/perturbed_input_{self.suffix}_occluded{n}_target_1.fits"
+        self.f_pertC = f"{self.exp_dir}/perturbed_input_{self.suffix}_occluded{n}_source.fits"
         f_list = [ self.f_pertC, self.f_pertA, self.f_pertB ] # ! load C first
         data = [ fits.open( f )[0].data for f in f_list ]
         keys = ['p_s', 'p_tA', 'p_tB'] # p_s: perturbed source, p_t: perturbed target
         tmpd = dict(zip(keys, data))
         self.pert = pd.DataFrame.from_dict({k: [v] for k, v in tmpd.items()})
 
+"""
+# Example usage
 if __name__ == "__main__":
     output_dir =  "../output/"
     suffix = "run71_index0"
-    exp_name = "test" #"xai_exp_occlusion" #"xai_exp_random" # #
+    exp_name = ["test",  "xai_exp_faint_ha",  "xai_exp_ha", "xai_exp_oiii",  
+                "xai_exp_random",  "xai_exp_random_ha",  "xai_exp_random_oiii"]
+    for exp in exp_name:
+        data_loader = XAIDataLoader(output_dir, exp, suffix)
+        print(data_loader.pert)
+        print(data_loader.real)
+        print(data_loader.fake)
+
+    exp_name = "xai_exp_occlusion"
     data_loader = XAIDataLoader(output_dir, exp_name, suffix, n_occ=16)
-    #data_loader.load_perturbed_inputs()
     print(data_loader.pert)
     print(data_loader.real)
     print(data_loader.fake)
+"""
