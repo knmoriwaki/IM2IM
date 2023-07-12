@@ -82,7 +82,7 @@ def plot_shuffled_map(df, results_dir, exp_name='test', suffix=f"run0_index0"):
     plt.close()
 
 
-def plot_occluded_map(data, results_dir, n_occ, exp_name, suffix=f"run0_index0"):
+def plot_perturbed_map(data, results_dir, exp_name, n_occ=None, suffix=f"run0_index0"):
     """
     Expects input from the XAIDataLoader
     """
@@ -119,7 +119,10 @@ def plot_occluded_map(data, results_dir, n_occ, exp_name, suffix=f"run0_index0")
         ax.set_title(col[i])
         ax.imshow(df_fake[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
     
-    filename =f"{exp_name}_{suffix}_occluded{n_occ}_image.png"    
+    if n_occ is not None:
+        filename =f"{exp_name}_{suffix}_occluded{n_occ}_image.png"    
+    else:
+        filename =f"{exp_name}_{suffix}_image.png"
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path) 
     plt.show()
