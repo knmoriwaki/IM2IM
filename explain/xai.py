@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import numpy as np
-import random
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from correlation_coefficient import compute_r
@@ -83,28 +82,50 @@ def plot_shuffled_map(df, results_dir, exp_name='test', suffix=f"run0_index0"):
     plt.close()
 
 
-def plot_occluded_map(df, results_dir, n_occ, exp_name='occ', suffix=f"run0_index0"):
+def plot_occluded_map(data, results_dir, n_occ, exp_name, suffix=f"run0_index0"):
+    """
+    Expects input from the XAIDataLoader
+    """
+    df_fake = data.fake
+    df_real = data.real
+    df_pert = data.pert
+    
     #vmin = -2.0e-07
     #vmax = 2.0e-07
     vmin = 0
     vmax = 9.0e-08  
+    #vmax = np.max(df_real['obs'].values[0])
     
     _, axs = plt.subplots(3,3, figsize=(10, 8))
     
-    col = df.columns
-    for i in range(len(col)):
-        ax = axs[int(i/3)][int(i%3)]
+    col = df_real.columns
+    for i in range(len(col)):    
+        ax = axs[0][int(i%3)]
         ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
         ax.set_title(col[i])
-        ax.imshow(df[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
-        
+        ax.imshow(df_real[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+
+    col = df_pert.columns
+    for i in range(len(col)):    
+        ax = axs[1][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        ax.imshow(df_pert[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+    
+    col = df_fake.columns
+    for i in range(len(col)):    
+        ax = axs[2][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        ax.imshow(df_fake[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+    
     filename =f"{exp_name}_{suffix}_occluded{n_occ}_image.png"    
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path) 
     plt.show()
     plt.close()
 
-def plot_r_occ_sample(ref_dir, occ_dir, results_dir, n_occ, suffix, nbins=20, log_bins=True):
+def plot_r_occ_sample(output_dir, ref_name, exp_name, results_dir, n_occ, suffix, nbins=20, log_bins=True):
     """
     Inputs: df (dataframe holding the real, perturbed (occluded) and generated images)
     """
@@ -115,10 +136,11 @@ def plot_r_occ_sample(ref_dir, occ_dir, results_dir, n_occ, suffix, nbins=20, lo
     l_ha = []
     l_oiii = []
     for i in range(int(n_occ)):
-        df = read_occ_data(occ_dir, i, suffix=suffix)
-        r_mix , k_array = compute_r(df["p_s"].values[0], df["rec"].values[0], nbins=nbins, log_bins=log_bins)
-        r_ha , _ = compute_r(df["p_tA"].values[0], df["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
-        r_oiii , _ = compute_r(df["p_tB"].values[0], df["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+        data = XAIDataLoader(output_dir, exp_name, suffix, n_occ=i)
+        
+        r_mix , k_array = compute_r(data.pert["p_s"].values[0], data.fake["rec"].values[0], nbins=nbins, log_bins=log_bins)
+        r_ha , _ = compute_r(data.pert["p_tA"].values[0], data.fake["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+        r_oiii , _ = compute_r(data.pert["p_tB"].values[0], data.fake["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
         k = k_array[0:-1]
         plt.plot(k, r_mix, 'k', alpha=0.05)
         plt.plot(k, r_ha, 'b', alpha=0.1)
@@ -135,10 +157,10 @@ def plot_r_occ_sample(ref_dir, occ_dir, results_dir, n_occ, suffix, nbins=20, lo
     plt.plot(k, mean_oiii, '--', color='r', label="OIII signal")
     
     # Plot reference
-    data = read_data(ref_dir, suffix=suffix, ldict=True)
-    r_mix , _ = compute_r(data["obs"], data["rec"], log_bins=log_bins)
-    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=log_bins)
-    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=log_bins)
+    data = XAIDataLoader(output_dir, ref_name, suffix)
+    r_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], log_bins=log_bins)
+    r_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], log_bins=log_bins)
+    r_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], log_bins=log_bins)
     
     plt.plot(k, r_mix, color='k', label="ref mix")
     plt.plot(k, r_ha, color='b', label="ref Ha")
@@ -154,30 +176,32 @@ def plot_r_occ_sample(ref_dir, occ_dir, results_dir, n_occ, suffix, nbins=20, lo
     plt.show()
     plt.close()
 
-def calc_importance(ref_dir, occ_dir, n_occ, suffix, nbins=20, log_bins=True):
+def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=20, log_bins=True):
     """
     I want to assign an importance defied by the difference between 
     reference(r_(true-fake)) and experiment(r_(perturbed_true-fake)) to each patch in the occlusion
     """ 
     
     # Read reference data
-    data = read_data(ref_dir, suffix=suffix, ldict=True)
-    ref_mix , _ = compute_r(data["obs"], data["rec"], log_bins=log_bins)
-    ref_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=log_bins)
-    ref_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=log_bins)
+    data = XAIDataLoader(output_dir, ref_name, suffix)
+    ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], log_bins=log_bins)
+    ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], log_bins=log_bins)
+    ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], log_bins=log_bins)
 
     im_size = 256
 
     l_mix = []
     l_ha = []
     l_oiii = []
-    for i in range(n_occ):
+    for i in range(total_n_occ):
         # Read occluded data
-        df = read_occ_data(occ_dir, i, suffix=suffix)
+        data = XAIDataLoader(output_dir, exp_name, suffix, n_occ=i)
+        df_p = data.pert
+        df_f = data.fake
         # Calculate correlation coefficients
-        r_mix , _ = compute_r(df["p_s"].values[0], df["rec"].values[0], nbins=nbins, log_bins=log_bins)
-        r_ha , _ = compute_r(df["p_tA"].values[0], df["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
-        r_oiii , _ = compute_r(df["p_tB"].values[0], df["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+        r_mix , _ = compute_r(df_p["p_s"].values[0], df_f["rec"].values[0], nbins=nbins, log_bins=log_bins)
+        r_ha , _ = compute_r(df_p["p_tA"].values[0], df_f["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+        r_oiii , _ = compute_r(df_p["p_tB"].values[0], df_f["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
         # Calculate "Score"
         ds_mix = np.sum(abs(ref_mix - r_mix))
         ds_ha = np.sum(abs(ref_ha - r_ha))
@@ -193,7 +217,7 @@ def calc_importance(ref_dir, occ_dir, n_occ, suffix, nbins=20, log_bins=True):
     im_oiii = np.zeros((im_size,im_size))
     
     rows, cols = np.shape(im_mix)
-    occlusion_size = int(np.sqrt(im_size*im_size/n_occ))
+    occlusion_size = int(np.sqrt(im_size*im_size/total_n_occ))
     s = 0
     for i in range(0, rows, occlusion_size):
         for j in range(0, cols, occlusion_size):

@@ -20,10 +20,9 @@ class XAIDataLoader:
         self.suffix = suffix
         if n_occ is not None:
             self.n_occ = n_occ
-            n = 3
             self.load_real()
-            self.load_single_occluded_fake(n)
-            self.load_single_occluded_input(n)
+            self.load_single_occluded_fake(self.n_occ)
+            self.load_single_occluded_input(self.n_occ)
         else:
             self.load_real()
             self.load_fake()
