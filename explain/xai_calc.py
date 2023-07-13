@@ -65,80 +65,95 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=2
 
     return im_mix, im_ha, im_oiii
 
-## TO DO: Merge calc_eval_metrics and create_dataframe or write a wrapper around them
-def calc_eval_metrics(data):
+def calc_eval_metrics(data, compare_to="real", nbins=20, log_bins=True):
     """Calculate the evaluation metrics for the reconstructed maps of one data sample.
     1) Difference between the mean values (DBM). This resembles the L1 Norm, but we care about if the difference is positive or negative.
     2) Root mean square error (RMSE) between the true and reconstructed maps.
     3) Summation of the values in the true and reconstructed maps. Moreover, comparison (difference) between these two.
     4) The correlation coefficient after Fourier transformation.
-    Input: data (dict) with following labels: ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]
-    Output: eval_dic (dict) with the evaluation metrics.
+    Input: XAIDataLoader class 
+    Output: eval_dic (dict) with the evaluation metrics as input to create_eval_dataframe
     """
+    
+    df_fake = data.fake
+    f_mix = df_fake["rec"].values[0]
+    f_A = df_fake["fakeA"].values[0]
+    f_B = df_fake["fakeB"].values[0]
+    
+    if compare_to == "real":
+        df_ref = data.real
+        r_mix = df_ref["obs"].values[0]
+        r_A = df_ref["realA"].values[0]
+        r_B = df_ref["realB"].values[0]
+    elif compare_to == "pert":
+        df_ref = data.pert
+        r_mix = df_ref["p_s"].values[0]
+        r_A = df_ref["p_tA"].values[0]
+        r_B = df_ref["p_tB"].values[0]
+    else:
+        print("Currently it is default to compare to the real data.")
+        print("If you do not want to compare to real or perturbed (pert) data extend the function.")
+    
     eval_dic = {}
     ## Error metrics
-    eval_dic["l1_mix"] = np.mean(data["obs"]) - np.mean(data["rec"])
-    eval_dic["l1_ha"] = np.mean(data["trueHa"]) - np.mean(data["fakeHa"])
-    eval_dic["l1_oiii"] = np.mean(data["trueOIII"]) - np.mean(data["fakeOIII"])
-    eval_dic["rmse_mix"] = np.sqrt(np.mean((data["obs"] - data["rec"])**2))
-    eval_dic["rmse_ha"] = np.sqrt(np.mean((data["trueHa"] - data["fakeHa"])**2))
-    eval_dic["rmse_oiii"] = np.sqrt(np.mean((data["trueOIII"] - data["fakeOIII"])**2))
-    eval_dic["d_sum_mix"] = np.sum(data["obs"]) - np.sum(data["rec"])
-    eval_dic["d_sum_ha"] = np.sum(data["trueHa"]) - np.sum(data["fakeHa"])
-    eval_dic["d_sum_oiii"] = np.sum(data["trueOIII"]) - np.sum(data["fakeOIII"])
+    eval_dic["l1_mix"] = np.mean(r_mix) - np.mean(f_mix)
+    eval_dic["l1_ha"] = np.mean(r_A) - np.mean(f_A)
+    eval_dic["l1_oiii"] = np.mean(r_B) - np.mean(f_B)
+    eval_dic["rmse_mix"] = np.sqrt(np.mean((r_mix - f_mix)**2))
+    eval_dic["rmse_ha"] = np.sqrt(np.mean((r_A - f_A)**2))
+    eval_dic["rmse_oiii"] = np.sqrt(np.mean((r_B - f_B)**2))
+    eval_dic["d_sum_mix"] = np.sum(r_mix) - np.sum(f_mix)
+    eval_dic["d_sum_ha"] = np.sum(r_A) - np.sum(f_A)
+    eval_dic["d_sum_oiii"] = np.sum(r_B) - np.sum(f_B)
     ## Statistical metrics single field   
-    eval_dic["mean_trueha"] = np.mean(data["trueHa"])
-    eval_dic["mean_fakeha"] = np.mean(data["fakeHa"])
-    eval_dic["mean_trueoiii"] = np.mean(data["trueOIII"])
-    eval_dic["mean_fakeoiii"] = np.mean(data["fakeOIII"])
-    eval_dic["std_trueha"] = np.std(data["trueHa"])
-    eval_dic["std_fakeha"] = np.std(data["fakeHa"])
-    eval_dic["std_trueoiii"] = np.std(data["trueOIII"])
-    eval_dic["std_fakeoiii"] = np.std(data["fakeOIII"])
-    eval_dic["sum_trueha"] = np.sum(data["trueHa"])
-    eval_dic["sum_fakeha"] = np.sum(data["fakeHa"])
-    eval_dic["sum_trueoiii"] = np.sum(data["trueOIII"])
-    eval_dic["sum_fakeoiii"] = np.sum(data["fakeOIII"])
-    eval_dic["max_trueha"] = np.max(data["trueHa"])
-    eval_dic["max_fakeha"] = np.max(data["fakeHa"])
-    eval_dic["max_trueoiii"] = np.max(data["trueOIII"])
-    eval_dic["max_fakeoiii"] = np.max(data["fakeOIII"])
+    eval_dic["mean_trueha"] = np.mean(r_A)
+    eval_dic["mean_fakeha"] = np.mean(f_A)
+    eval_dic["mean_trueoiii"] = np.mean(r_B)
+    eval_dic["mean_fakeoiii"] = np.mean(f_B)
+    eval_dic["std_trueha"] = np.std(r_A)
+    eval_dic["std_fakeha"] = np.std(f_A)
+    eval_dic["std_trueoiii"] = np.std(r_B)
+    eval_dic["std_fakeoiii"] = np.std(f_B)
+    eval_dic["sum_trueha"] = np.sum(r_A)
+    eval_dic["sum_fakeha"] = np.sum(f_A)
+    eval_dic["sum_trueoiii"] = np.sum(r_B)
+    eval_dic["sum_fakeoiii"] = np.sum(f_B)
+    eval_dic["max_trueha"] = np.max(r_A)
+    eval_dic["max_fakeha"] = np.max(f_A)
+    eval_dic["max_trueoiii"] = np.max(r_B)
+    eval_dic["max_fakeoiii"] = np.max(f_B)
 
 
     # There are many correlation coefficients resulting from different k values. 
     # The k values for each map are the same, so we can just take the first one.
-    r_mix , k_array = compute_r(data["obs"], data["rec"], log_bins=True)
-    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=True)
-    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=True)
+    r_mix , k_array = compute_r(r_mix, f_mix, nbins=nbins, log_bins=log_bins)
+    r_ha , _ = compute_r(r_A, f_A, nbins=nbins, log_bins=log_bins)
+    r_oiii , _ = compute_r(r_B, f_B, nbins=nbins, log_bins=log_bins)
     i = 0
     for i in range(len(k_array)-1): 
         k = k_array[i]
         eval_dic["r_mix_"+str(int(k))]  = r_mix[i]
-        eval_dic["r_ha_"+str(int(k))]   = r_ha[i]
-        eval_dic["r_oiii_"+str(int(k))] = r_oiii[i]
+        eval_dic["r_A_"+str(int(k))]   = r_ha[i]
+        eval_dic["r_B_"+str(int(k))] = r_oiii[i]
     
     return eval_dic, k_array
 
-def create_dataframe(output_dir, nrun=100, nindex=1):
+def create_eval_dataframe(output_dir, exp_name, suffix_list, nbins=20, log_bins=True):
     """
     Reads in several samples and creates a dataframe with the evaluation metrics.
     Input: suffix_list (list) with the ids of the samples.
     Output: df (pandas dataframe) with the evaluation metrics.
     """
-    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
-    data = read_data(output_dir, suffix=suffix_list[0], ldict=True)
-    _, initial_k = calc_eval_metrics(data)
     temp = []
     for data_sample in suffix_list:
-        data = read_data(output_dir, suffix=data_sample, ldict=True)
+        data = XAIDataLoader(output_dir, exp_name, suffix=data_sample)
         # Perform analysis and calculate evaluation metrics
-        eval_dic, k = calc_eval_metrics(data)
-        assert k.all() == initial_k.all()
+        eval_dic, k = calc_eval_metrics(data, compare_to='real', nbins=nbins, log_bins=log_bins)
         # Add sample ID and timestamp to the evaluation results
         eval_dic['sample_id'] = data_sample
         temp.append(eval_dic)
     df = pd.DataFrame(temp)
-    return df, initial_k
+    return df, k
 
 def compare_experiments(data_ref, data_exp, nbins=20, log_bins=True, ldict=False):
     """
