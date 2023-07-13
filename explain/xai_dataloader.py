@@ -5,6 +5,7 @@ Date: July 2023
 import os
 import pandas as pd
 from astropy.io import fits
+from save_fits_data import save_fits_data
 
 
 class XAIDataLoader:
@@ -103,22 +104,30 @@ class XAIDataLoader:
         tmpd = dict(zip(keys, data))
         self.pert = pd.DataFrame.from_dict({k: [v] for k, v in tmpd.items()})
 
-"""
+    def write(self, image, path, fname, norm=2.0e-7, overwrite=False):
+        """Write fits files to disk.
+           Args: image to write, path to write to, filename
+        """
+        size = image.shape
+        img = image.reshape(1, 1, size[0], size[1])
+        file_name = f"{path}/{fname}.fits"
+        save_fits_data(img, file_name, norm=norm, overwrite=overwrite)
+
+
 # Example usage
 if __name__ == "__main__":
     output_dir =  "../output/"
     suffix = "run71_index0"
     exp_name = ["test",  "xai_exp_faint_ha",  "xai_exp_ha", "xai_exp_oiii",  
                 "xai_exp_random",  "xai_exp_random_ha",  "xai_exp_random_oiii"]
-    for exp in exp_name:
-        data_loader = XAIDataLoader(output_dir, exp, suffix)
-        print(data_loader.pert)
-        print(data_loader.real)
-        print(data_loader.fake)
+    #for exp in exp_name:
+    #    data_loader = XAIDataLoader(output_dir, exp, suffix)
+    #    print(data_loader.pert)
+    #    print(data_loader.real)
+    #    print(data_loader.fake)
 
     exp_name = "xai_exp_occlusion"
-    data_loader = XAIDataLoader(output_dir, exp_name, suffix, n_occ=16)
-    print(data_loader.pert)
-    print(data_loader.real)
-    print(data_loader.fake)
-"""
+    data_loader = XAIDataLoader(output_dir, exp_name, suffix, n_occ=2)
+    data = data_loader.pert
+    save_me = data['p_s'].values[0]
+    data_loader.write(save_me, output_dir, "savemetest_input")
