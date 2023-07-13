@@ -7,19 +7,6 @@ from correlation_coefficient import compute_r
 from xai_dataloader import XAIDataLoader
 import pdb
 
-def save_fits_data(image, path, norm=2.0e-7, overwrite=False):
-    ## save astropy.io.fits 2d image data
-    # image: np.array((1,1,N,N)) or torch.tensor((1,1,N,N)). The first (batch) and second (feature) dimensions will be squeezed.
-    # path: output file name 
-    # norm: set the same normalization factor used in load_data
-    # overwrite: False in default
-    img = image.squeeze()
-    img = norm * img #Scarlet is this correct? There was no variable called "fac"
-    
-    hdu = fits.PrimaryHDU(img)
-    hdul = fits.HDUList([hdu])
-    hdul.writeto(path, overwrite=overwrite)
-
 
 def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=20, log_bins=True):
     """
@@ -177,20 +164,6 @@ def compare_exp_testset(output_dir, ref_name, exp_name, nrun=100, nindex=1, nbin
         
     return r_mix_list, r_ha_list, r_oiii_list
 
-
-def write_zero_fits(output_dir, data):
-    #### Actually this function is not needed. For the experiment I just multiplied the tensors directly with zero!
-    """Write fits files with zero values for the reconstructed maps.
-    Input: output_dir (str) with the path to the output directory.
-           data (dict) with following labels: ["obs", "trueHa", "trueOIII", "rec", "fakeHa", "fakeOIII"]
-    Output: fits file
-    """
-    zeros = np.zeros(data['fakeOIII'].shape)
-    size = zeros.shape
-    img = zeros.reshape(1, 1, size[0], size[1])
-    suffix = "no_signal"
-    file_name = f"{output_dir}/{suffix}.fits"
-    save_fits_data(img, file_name, norm=2.0e-7, overwrite=False)
 
 def create_dataframe(output_dir, nrun=100, nindex=1):
     """
