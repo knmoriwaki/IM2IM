@@ -8,8 +8,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from correlation_coefficient import compute_r
-from xai_dataloader import XAIDataLoader
+from explain.correlation_coefficient import compute_r
+from explain.xai_dataloader import XAIDataLoader
 import pdb
 
 def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=20, log_bins=True):

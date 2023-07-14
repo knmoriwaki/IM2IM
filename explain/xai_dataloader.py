@@ -5,7 +5,7 @@ Date: July 2023
 import os
 import pandas as pd
 from astropy.io import fits
-from save_fits_data import save_fits_data
+from explain.save_fits_data import save_fits
 
 
 class XAIDataLoader:
@@ -111,7 +111,7 @@ class XAIDataLoader:
         size = image.shape
         img = image.reshape(1, 1, size[0], size[1])
         file_name = f"{path}/{fname}.fits"
-        save_fits_data(img, file_name, norm=norm, overwrite=overwrite)
+        save_fits(img, file_name, norm=norm, overwrite=overwrite)
 
 
 # Example usage
