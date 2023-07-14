@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #export CUDA_LAUNCH_BLOCKING=1 # for debugging
 
@@ -12,11 +12,17 @@ output_dir=/mnt/data_cat4/moriwaki/IM2IM/output/${name}
 
 norm=2.0e-7
 load_iter=-1
-#Possible XAI experiments ha, oiii, random
-xai_exp=occlusion
-
 igpu=1
 
+# Test if all experiments still run
+# Normal testing
 #python main.py --name $name --gpu_ids $igpu --test_dir $test_dir --output_dir $output_dir --results_dir $results_dir --nrun 100 --model $model --load_iter $load_iter --norm $norm 
-python main.py --name $name --gpu_ids $igpu --test_dir $test_dir --output_dir $output_dir --results_dir $results_dir --nrun 100 --model $model --load_iter $load_iter --norm $norm --isXAI --xai_exp $xai_exp
+
+# XAI testing
+experiments=("ha" "oiii" "random" "random_ha" "random_oiii" "faint_ha" "occlusion")
+for xai_exp in "${experiments[@]}"
+do
+    python main.py --name $name --gpu_ids $igpu --test_dir $test_dir --output_dir $output_dir --results_dir $results_dir --nrun 100 --model $model --load_iter $load_iter --norm $norm --isXAI --xai_exp $xai_exp
+done
+
 

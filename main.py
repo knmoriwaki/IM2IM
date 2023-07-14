@@ -66,7 +66,8 @@ parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, defau
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 
 # XAI parameters #
-parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'occlusion'], type=str, default=None, help="Experiment only using one input (ha or oiii) instead of the mixed signal (ha+oiii) or random input")
+parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha', 'occlusion'], type=str, default=None, 
+                    help="The user needs to choose which XAI expierment to perform.")
 parser.add_argument("--occlusion_size", type=int, default=64, help="Occlusion window size for occlusion sensitivity")
 
 args = parser.parse_args()
@@ -84,7 +85,6 @@ def main():
         train(device)
     else:
         test(device)
-
 
 
 def load_data(path, prefix_list, device="cuda:0"):
@@ -204,7 +204,7 @@ def test(device):
     ### load data ###
     prefix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(args.nrun) for j in range(args.nindex) ]
     if args.isXAI:
-        if args.xai_exp in ["ha", "oiii", "random", "random_ha", "random_oiii"]:
+        if args.xai_exp in ["ha", "oiii", "random", "random_ha", "random_oiii", "faint_ha"]:
             source, target = xai_load_data(args, prefix_list, device=device)
         elif  args.xai_exp=="occlusion":
             source, target = occlusion_load_data(args, prefix_list, device=device)
@@ -231,12 +231,11 @@ def test(device):
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
         
-        if args.xai_exp in ["random", "random_ha", "random_oiii", "occlusion"]:
-            fid = "{}/occluded_input_{}".format(res_dir, p) 
+        if args.xai_exp in ["random", "random_ha", "random_oiii", "faint_ha", "occlusion"]:
+            fid = "{}/perturbed_input_{}".format(res_dir, p) 
             model.save_source_image(args, fid, overwrite=True)
             print("# save {}_*.fits".format(fid))
     print('# End of inference. Time Taken: %d sec' % (time.time() - start_time))
-
 
 if __name__ == "__main__":
     main()

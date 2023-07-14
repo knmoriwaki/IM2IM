@@ -39,10 +39,9 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         print(xai_exp)
         data[0] = data[0]*0.0
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
-    elif xai_exp == 'random':
+    elif xai_exp == 'faint_ha':
         print(xai_exp)
-        data[0] = np.random.random(np.shape(data[0]))*0.1
-        data[1] = np.random.random(np.shape(data[0]))*0.1
+        data[0] = data[0]*0.6455 
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
     else:
         data = [ data[0]+data[1], data[0], data[1], data[2]+data[3], data[2], data[3] ]
@@ -51,6 +50,47 @@ def read_data(output_dir, xai_exp=None, suffix=f"run0_index0",ldict=False):
         data = { l:d for l, d in zip(label_list, data) }
         
     return data
+
+def read_shuffled_data(output_dir, suffix=f"run0_index0"):
+    """
+    Read the original inputs, but also the perturbed inputs as 
+    perturbed during testing and the generated images. 
+    Returns a pandas dataframe for a single sample.
+    """
+    
+    f_realA = f"/mnt/data_cat4/moriwaki/IM2IM/val_data/{suffix}_z1.3_ha.fits"
+    f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
+    f_fakeA = f"{output_dir}/gen_{suffix}_0.fits"
+    f_fakeB = f"{output_dir}/gen_{suffix}_1.fits"
+    f_pertA = f"{output_dir}/perturbed_input_{suffix}_target_0.fits"
+    f_pertB = f"{output_dir}/perturbed_input_{suffix}_target_1.fits"
+    f_pertC = f"{output_dir}/perturbed_input_{suffix}_source.fits"
+    
+    # Construct lists for opening the files
+    f_real = [ f_realA, f_realB ]
+    f_fake = [ f_fakeA, f_fakeB ]
+    f_pert = [ f_pertC, f_pertA, f_pertB ]
+    # Open the files and construct a data list and corresponding keys
+    raw_r  = [ fits.open( f )[0].data for f in f_real ]
+    data_r = [ raw_r[0]+raw_r[1], raw_r[0], raw_r[1] ]
+    keys_r = ['obs', 'realA', 'realB']
+    raw_f  = [ fits.open( f )[0].data for f in f_fake ]
+    data_f = [ raw_f[0]+raw_f[1], raw_f[0], raw_f[1] ]
+    keys_f = ['rec', 'fakeA', 'fakeB']
+    data_p = [ fits.open( f )[0].data for f in f_pert ]
+    keys_p = ['p_s', 'p_tA', 'p_tB'] # p_s: perturbed source, p_t: perturbed target
+    # Create dictionaries with keys and data
+    dict_r = dict(zip(keys_r, data_r))
+    dict_f = dict(zip(keys_f, data_f))
+    dict_p = dict(zip(keys_p, data_p))
+    # Convert to pandas dataframes
+    df_r = pd.DataFrame.from_dict({k: [v] for k, v in dict_r.items()})
+    df_f = pd.DataFrame.from_dict({k: [v] for k, v in dict_f.items()})
+    df_p = pd.DataFrame.from_dict({k: [v] for k, v in dict_p.items()})
+    # Concatenate all into one dataframe
+    df = pd.concat([df_r, df_p, df_f], axis=1)
+    
+    return df
 
 def read_occ_data(output_dir, n_occ, suffix=f"run0_index0"):
     """
@@ -63,9 +103,9 @@ def read_occ_data(output_dir, n_occ, suffix=f"run0_index0"):
     f_realB = f"/mnt/data_cat4/moriwaki/IM2IM//val_data/{suffix}_z2.0_oiii.fits"
     f_fakeA = f"{output_dir}/gen_{suffix}_occluded{n_occ}_0.fits"
     f_fakeB = f"{output_dir}/gen_{suffix}_occluded{n_occ}_1.fits"
-    f_pertA = f"{output_dir}/occluded_input_{suffix}_occluded{n_occ}_target_0.fits"
-    f_pertB = f"{output_dir}/occluded_input_{suffix}_occluded{n_occ}_target_1.fits"
-    f_pertC = f"{output_dir}/occluded_input_{suffix}_occluded{n_occ}_source.fits"
+    f_pertA = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_target_0.fits"
+    f_pertB = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_target_1.fits"
+    f_pertC = f"{output_dir}/perturbed_input_{suffix}_occluded{n_occ}_source.fits"
     
     # Construct lists for opening the files
     f_real = [ f_realA, f_realB ]
@@ -112,6 +152,28 @@ def plot_true_fake_maps(data, results_dir):
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path)
     plt.show()
+
+def plot_shuffled_map(df, results_dir, exp_name='test', suffix=f"run0_index0"):
+    #vmin = -2.0e-07
+    #vmax = 2.0e-07
+    vmin = 0
+    vmax = 9.0e-08  
+    
+    _, axs = plt.subplots(3,3, figsize=(10, 8))
+    
+    col = df.columns
+    for i in range(len(col)):
+        ax = axs[int(i/3)][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        ax.imshow(df[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+        
+    filename =f"{exp_name}_{suffix}_image.png"    
+    save_path = os.path.join(results_dir, filename)    
+    plt.savefig(save_path) 
+    plt.show()
+    plt.close()
+
 
 def plot_occluded_map(df, results_dir, n_occ, exp_name='occ', suffix=f"run0_index0"):
     #vmin = -2.0e-07
@@ -323,6 +385,54 @@ def calc_eval_metrics(data):
     
     return eval_dic, k_array
 
+def compare_experiments(data_ref, data_exp, nbins=20, log_bins=True, ldict=False):
+    """
+    Compare the correlation coefficients of two experiments.
+    """
+    r_mix , k_array = compute_r(data_ref["rec"], data_exp["rec"], nbins=nbins, log_bins=log_bins)
+    r_ha , _ = compute_r(data_ref["fakeHa"], data_exp["fakeHa"], nbins=nbins, log_bins=log_bins)
+    r_oiii , _ = compute_r(data_ref["fakeOIII"], data_exp["fakeOIII"], nbins=nbins, log_bins=log_bins)
+
+    if ldict: 
+        r = {}
+        for i in range(len(k_array)-1): 
+            k = k_array[i]
+            r["r_mix_"+str(int(k))]  = r_mix[i]
+            r["r_ha_"+str(int(k))]   = r_ha[i]
+            r["r_oiii_"+str(int(k))] = r_oiii[i]
+        
+        return r_ha, k_array[0:-1]
+    else:
+        return r_mix, r_ha, r_oiii, k_array[0:-1]
+
+def compare_exp_testset(ref_dir, exp_dir, nrun=100, nindex=1, nbins=20, log_bins=True):
+    """ Construct a list for plotting the correlation r between two experiments against k for the whole test dataset.
+    Inputs: data directories for both experiments (ref_dir and exp_dir)
+            log_bins switch in case the computation of r should run on log(k)
+            nrun ask Kana
+            nindex ask Kana
+    Outputs: three lists containing the k as first entry and then correlation coefficients correspoding to k 
+    for each sample in the test set
+    """
+    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
+    r_mix_list  = []
+    r_ha_list   = []
+    r_oiii_list = []
+    for data_sample in suffix_list:
+        data_ref = read_data(ref_dir, suffix=data_sample, ldict=True)
+        data_exp = read_data(exp_dir, suffix=data_sample, ldict=True)
+        r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, nbins=nbins, log_bins=log_bins, ldict=False)
+        if data_sample == suffix_list[0]:
+            r_mix_list.append(k)
+            r_ha_list.append(k)
+            r_oiii_list.append(k)
+        r_mix_list.append(r_mix)
+        r_ha_list.append(r_ha)
+        r_oiii_list.append(r_oiii)
+        
+    return r_mix_list, r_ha_list, r_oiii_list
+
+
 def write_zero_fits(output_dir, data):
     #### Actually this function is not needed. For the experiment I just multiplied the tensors directly with zero!
     """Write fits files with zero values for the reconstructed maps.
@@ -406,6 +516,102 @@ def plot_k_vs_error(df, k_array, results_dir, error="l1", exp_name="yolo"):
         plt.show()
         plt.close()
 
+def plot_sample_r_vs_k(data_ref, data_exp, results_dir, title="Insert Title"):
+    """ This plot needs improvement to plot all data not only one data point.
+    """
+    r_mix, r_ha, r_oiii, k = compare_experiments(data_ref, data_exp, log_bins=True, ldict=False)
+    plt.figure(figsize=(10, 6))
+    plt.plot(k, r_mix, 'r', label="reconstructed mixed signal")
+    plt.plot(k, r_ha, 'b', label="reconstructed Halpha signal")
+    plt.plot(k, r_oiii, 'g', label="reconstructed OIII signal")
+    plt.xscale('log')
+    plt.legend()
+    plt.xlabel("k in log bins")
+    plt.ylabel("r between reference and experiment")
+    plt.title(title)
+    name = '_'.join(title.lower().split()).replace(' ', '_')
+    plt.savefig(f"{results_dir}/compare_exp{name}.png")
+    print(f"Saved plot {results_dir}/{name}.png")
+    plt.show()
+    plt.close()
+
+def plot_r_vs_r(df_ref, df_exp, k_array, results_dir, exp_name="yolo"):
+    """
+    Compare the reference simlation to experiments in terms of correlation coefficients.
+    Input: df_ref (pandas dataframe) with the evaluation metrics for the reference simulation (x-axis).
+           df_ref (pandas dataframe) with the evaluation metrics for the experiment (y-axis).
+           k_array (numpy array) with the k values.
+           output_dir (str) with the path to the output directory.
+           exp_name (str) with the name of the experiment.
+    Output: plot
+    """
+    for s in ['mix', 'ha', 'oiii']:
+        for i in range(len(k_array)-1): 
+            k = str(int(k_array[i]))
+            # First sort the values in the dataframe from the reference simulation
+            row = "r_"+s+"_"+k
+            sorted_ref =df_ref.sort_values(by=row, ascending=True)
+            sorted_exp = df_exp.loc[sorted_ref.index]
+            vmax = max(sorted_ref[row].max(), sorted_exp[row].max())
+            vmin = min(sorted_ref[row].min(), sorted_exp[row].min())
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(sorted_ref[row], df_exp[row], label=row, marker='o', linestyle='None')
+            plt.legend()
+            plt.xlabel("reference r between true and fake at k= "+str(k))
+            plt.ylabel("experiment r between true and fake at k= "+str(k))
+            plt.xlim(vmin, vmax)
+            plt.ylim(vmin, vmax)
+            name = exp_name+"_r_vs_r_"+row
+            plt.title(name)
+            plt.savefig(f"{results_dir}/{name}.png")
+            print(f"Saved plot {results_dir}/{name}.png")
+            plt.show()
+            plt.close()
+
+def plot_all_r_vs_k(r_list, results_dir, title="Insert Title"):
+    """ Plots r vs k for all test samples in one plot.
+    """
+    mean_r = np.mean(np.array((r_list[1:])), axis=0)
+    k = r_list[0]
+    r = r_list[1:]
+    
+    plt.figure(figsize=(10, 6))
+    for i in range(len(r)):
+        plt.plot(k, r[i], 'c', alpha=0.1)
+    plt.plot(k, mean_r, 'r', label="mean r")
+    plt.legend()
+    plt.xlabel("k in log bins")
+    plt.xscale('log')
+    plt.ylabel("r between reference and experiment")
+    plt.title(title)
+    name = '_'.join(title.lower().split()).replace(' ', '_')
+    plt.savefig(f"{results_dir}/compare_exp{name}.png")
+    print(f"Saved plot {results_dir}/{name}.png")
+    plt.show()
+    plt.close()
+
+def plot_r_single_sample(data, suffix, log_bins=True):
+    r_mix , k_array = compute_r(data["obs"], data["rec"], log_bins=log_bins)
+    r_ha , _ = compute_r(data["trueHa"], data["fakeHa"], log_bins=log_bins)
+    r_oiii , _ = compute_r(data["trueOIII"], data["fakeOIII"], log_bins=log_bins)
+    
+    k = k_array[0:-1]
+        
+    plt.figure(figsize=(10, 6))
+    plt.plot(k, r_mix, 'k', label="r mixed signal")
+    plt.plot(k, r_ha, 'b', label="r Halpha signal")
+    plt.plot(k, r_oiii, 'r', label="r OIII signal")
+    plt.legend()
+    plt.xlabel("k in log bins")
+    plt.xscale('log')
+    plt.ylabel("r between true and fake "+suffix)
+    plt.title(suffix)
+    #plt.savefig(f"{results_dir}/compare_exp{suffix}.png")
+    #print(f"Saved plot {results_dir}/{suffix}.png")
+    plt.show()
+    plt.close()
+
 if __name__ == "__main__":
     base_output_dir = "../output/" # Meanwhile I have my own output directory with GAN results
     names = ['test', 'xai_exp_occlusion' ]
@@ -454,8 +660,13 @@ if __name__ == "__main__":
             plot_true_vs_k(df, k_array, results_dir, moment=m, exp_name=d)
         for e in error_metrics:
             plot_k_vs_error(df, k_array, results_dir, error=e, exp_name=d)
-        #container[d] = df
+        container[d] = df
 
+    df_ref = container[names[0]]
+    df_ha = container[names[1]]
+    df_oiii = container[names[2]]
+    plot_r_vs_r(df_ref, df_ha, k_array, results_dir, exp_name=names[1])
+    plot_r_vs_r(df_ref, df_oiii, k_array, results_dir, exp_name=names[2])
     #pdb.set_trace()
     print("DONE")
     

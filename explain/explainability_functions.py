@@ -1,5 +1,6 @@
 import time
 import pdb
+import sys
 
 import torch
 import torch.nn as nn
@@ -10,8 +11,9 @@ from utils import load_fits_image
 def xai_load_data(args, prefix_list, device="cuda:0"):
     """ Modification to load data for XAI experiments using only one input instead of the mixed signal.
     """
-    start_time = time.time()
     path = args.test_dir
+    start_time = time.time()
+    
     print("# loading data from {}".format(path), end=" ")
     data_list = []
     for label in [ "z1.3_ha", "z2.0_oiii" ]:
@@ -32,14 +34,38 @@ def xai_load_data(args, prefix_list, device="cuda:0"):
         print("OIII set as source and target. ", torch.mean(source), torch.mean(target2))
         print("This value should be zero: ", torch.mean(target1))
     elif args.xai_exp == "random":
-        source = torch.rand(data_list[0].size())*0.1
-        target1 = data_list[0] 
-        target2 = data_list[1] 
-        print("Random set as source, but not target. ", torch.mean(source), torch.mean(target1), torch.mean(target2))
+        input1 = data_list[0].to("cpu")
+        input2 = data_list[1].to("cpu")
+        shuffled1 = input1[:, :, torch.randperm(input1.size()[2]), :]
+        shuffled2 = input2[:, :, torch.randperm(input1.size()[2]), :]
+        source = shuffled1 + shuffled2
+        source = source.to(device)
+        target1 = shuffled1.to(device) 
+        target2 = shuffled2.to(device)
+        print("Shuffled source and target to destroy the structure and keep the statistical distribution.")
+    elif args.xai_exp == "random_ha":
+        input1 = data_list[0].to("cpu")
+        shuffled1 = input1[:, :, torch.randperm(input1.size()[2]), :]
+        source = shuffled1.to(device)
+        target1 = source 
+        target2 = data_list[1]*0.0
+        print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
+    elif args.xai_exp == "random_oiii":
+        input2 = data_list[1].to("cpu")
+        shuffled2 = input2[:, :, torch.randperm(input2.size()[2]), :]
+        source = shuffled2.to(device)
+        target1 = data_list[0]*0.0
+        target2 = source
+        print("Shuffled source and Halpha target, no OIII to destroy the Halpha structure and keep the statistical distribution.")
+    elif args.xai_exp == "faint_ha":
+        brightness_factor = 0.6455
+        target1 = data_list[0]*brightness_factor
+        target2 = data_list[1]
+        source = target1 + target2
+        print("Brightness of Halpha scaled down to  ", brightness_factor, " of the original value.")
     else:
-        print("Error: no label for the XAI expieriment is specified")
+        print("Error: no label for the XAI expieriment is specified", args.xai_exp)
         sys.exit(1)
-
 
     print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
 
@@ -49,8 +75,7 @@ def xai_load_data(args, prefix_list, device="cuda:0"):
         target = target2
     
     target = torch.clamp(target, min=-1.0, max=1.0)
-    return source, target
-
+    return source, target    
 
 def occlusion_load_data(args, prefix_list, device="cuda:0"):
     """ Modification to load data for occlusion experiments.
