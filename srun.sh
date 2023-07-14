@@ -16,7 +16,7 @@ else
 
     val_dir=/mnt/data_cat4/moriwaki/IM2IM/val_data
     test_dir=/mnt/data_cat4/moriwaki/IM2IM/val_data
-    results_dir=./output
+    results_dir=./output/xai_results
 
     model=pix2pix_2
     name=pix2pix_2_bs4_ep1_lambda1000_vanilla
@@ -41,15 +41,17 @@ else
     done
     deactivate
 
+
+    output_dir=./output
     . $xai_python_env/bin/activate
     which python
     # Evaluation of the inference on the test set
-    python eval.py --output_dir ${results_dir} --results_dir ${results_dir} --nrun 100 --isRef
+    python eval.py --output_dir ${output_dir} --results_dir ${results_dir} --nrun 100 --isRef
 
     # XAI experiment evaluation
     for xai_exp in "${experiments[@]}"
     do
-        python eval.py --output_dir ${results_dir}  --results_dir ${results_dir} --nrun 100 --xai_exp xai_exp_${xai_exp}
+        python eval.py --output_dir ${output_dir}  --results_dir ${results_dir} --nrun 100 --xai_exp xai_exp_${xai_exp}
     done
     deactivate
 fi

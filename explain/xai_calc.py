@@ -20,9 +20,9 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=2
     
     # Read reference data
     data = XAIDataLoader(output_dir, ref_name, suffix)
-    ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], log_bins=log_bins)
-    ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], log_bins=log_bins)
-    ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], log_bins=log_bins)
+    ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0],  nbins=nbins, log_bins=log_bins)
+    ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0],  nbins=nbins, log_bins=log_bins)
+    ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0],  nbins=nbins, log_bins=log_bins)
 
     im_size = 256
 
