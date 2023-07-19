@@ -8,8 +8,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from correlation_coefficient import compute_r
-from xai_dataloader import XAIDataLoader
+from explain.correlation_coefficient import compute_r
+from explain.xai_dataloader import XAIDataLoader
 import pdb
 
 def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=20, log_bins=True):
@@ -20,9 +20,9 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=2
     
     # Read reference data
     data = XAIDataLoader(output_dir, ref_name, suffix)
-    ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], log_bins=log_bins)
-    ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], log_bins=log_bins)
-    ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], log_bins=log_bins)
+    ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0],  nbins=nbins, log_bins=log_bins)
+    ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0],  nbins=nbins, log_bins=log_bins)
+    ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0],  nbins=nbins, log_bins=log_bins)
 
     im_size = 256
 

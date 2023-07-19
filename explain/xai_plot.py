@@ -8,8 +8,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from correlation_coefficient import compute_r
-from xai_dataloader import XAIDataLoader
+from explain.correlation_coefficient import compute_r
+from explain.xai_dataloader import XAIDataLoader
 import pdb
 
 ### Plotting routines ### 
@@ -134,9 +134,9 @@ def plot_r_occ_sample(output_dir, ref_name, exp_name, results_dir, n_occ, suffix
     
     # Plot reference
     data = XAIDataLoader(output_dir, ref_name, suffix)
-    r_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], log_bins=log_bins)
-    r_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], log_bins=log_bins)
-    r_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], log_bins=log_bins)
+    r_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], nbins=nbins, log_bins=log_bins)
+    r_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+    r_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
     
     plt.plot(k, r_mix, color='k', label="ref mix")
     plt.plot(k, r_ha, color='b', label="ref Ha")
@@ -210,7 +210,7 @@ def plot_all_r_vs_k(r_list, results_dir, title="Insert Title"):
     plt.show()
     plt.close()
 
-def plot_r_single_sample(data, suffix, log_bins=True):
+def plot_r_single_sample(data, results_dir, suffix, nbins=20, log_bins=True):
     """
     Plot the r values for a single sample.
     Input: data (pandas dataframe) with the real and fake values.
@@ -229,9 +229,9 @@ def plot_r_single_sample(data, suffix, log_bins=True):
         a = df_pert["p_tA"].values[0]
         b = df_pert["p_tB"].values[0]
 
-    r_mix , k_array = compute_r(m, df_fake["rec"].values[0], log_bins=log_bins)
-    r_ha , _ = compute_r(a, df_fake["fakeA"].values[0], log_bins=log_bins)
-    r_oiii , _ = compute_r(b, df_fake["fakeB"].values[0], log_bins=log_bins)
+    r_mix , k_array = compute_r(m, df_fake["rec"].values[0], nbins=nbins, log_bins=log_bins)
+    r_ha , _ = compute_r(a, df_fake["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+    r_oiii , _ = compute_r(b, df_fake["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
     
     k = k_array[0:-1]
         
@@ -244,7 +244,7 @@ def plot_r_single_sample(data, suffix, log_bins=True):
     plt.xscale('log')
     plt.ylabel("r between true and fake "+suffix)
     plt.title(suffix)
-    #plt.savefig(f"{results_dir}/compare_exp{suffix}.png")
-    #print(f"Saved plot {results_dir}/{suffix}.png")
+    plt.savefig(f"{results_dir}/r_single_sample_{suffix}.png")
+    print(f"Saved plot {results_dir}/{suffix}.png")
     plt.show()
     plt.close()
