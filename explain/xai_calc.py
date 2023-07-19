@@ -12,7 +12,7 @@ from correlation_coefficient import compute_r
 from xai_dataloader import XAIDataLoader
 import pdb
 
-def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=20, log_bins=True):
+def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, occlusion_size=64, stride=32, nbins=20, log_bins=True):
     """
     I want to assign an importance defied by the difference between 
     reference(r_(true-fake)) and experiment(r_(perturbed_true-fake)) to each patch in the occlusion
@@ -53,16 +53,19 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=2
     im_oiii = np.zeros((im_size,im_size))
     
     rows, cols = np.shape(im_mix)
-    occlusion_size = int(np.sqrt(im_size*im_size/total_n_occ))
-    s = 0
-    for i in range(0, rows, occlusion_size):
-        for j in range(0, cols, occlusion_size):
-            # Occluding the source with the masking values:
-            im_mix[i:i + occlusion_size, j:j + occlusion_size] = l_mix[s]
-            im_ha[i:i + occlusion_size, j:j + occlusion_size] = l_ha[s]
-            im_oiii[i:i + occlusion_size, j:j + occlusion_size] = l_oiii[s]
-            s += 1
 
+    s = 0
+    for i in range(0, rows, stride):
+        for j in range(0, cols, stride):
+            # Occluding the source with the masking values:
+            im_mix[i:i + occlusion_size, j:j + occlusion_size] += l_mix[s]
+            im_ha[i:i + occlusion_size, j:j + occlusion_size] += l_ha[s]
+            im_oiii[i:i + occlusion_size, j:j + occlusion_size] += l_oiii[s]
+            s += 1
+    im_mix = im_mix / np.max(im_mix)
+    im_ha = im_ha / np.max(im_ha)
+    im_oiii = im_oiii / np.max(im_oiii)
+    
     return im_mix, im_ha, im_oiii
 
 def calc_eval_metrics(data, compare_to="real", nbins=20, log_bins=True):
