@@ -23,6 +23,11 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, occlusi
     ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], log_bins=log_bins)
     ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], log_bins=log_bins)
     ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], log_bins=log_bins)
+    # Restrict to only the first 10 bins for large scale structures
+    ref_mix = ref_mix[:10]
+    ref_ha = ref_ha[:10]
+    ref_oiii = ref_oiii[:10]
+    
 
     im_size = 256
 
@@ -38,6 +43,10 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, occlusi
         r_mix , _ = compute_r(df_p["p_s"].values[0], df_f["rec"].values[0], nbins=nbins, log_bins=log_bins)
         r_ha , _ = compute_r(df_p["p_tA"].values[0], df_f["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
         r_oiii , _ = compute_r(df_p["p_tB"].values[0], df_f["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+        # Restrict to only the first 10 bins for large scale structures
+        r_mix = r_mix[:10]
+        r_ha = r_ha[:10]
+        r_oiii = r_oiii[:10]
         # Calculate "Score"
         ds_mix = np.sum(abs(ref_mix - r_mix))
         ds_ha = np.sum(abs(ref_ha - r_ha))
@@ -65,7 +74,7 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, occlusi
     im_mix = im_mix / np.max(im_mix)
     im_ha = im_ha / np.max(im_ha)
     im_oiii = im_oiii / np.max(im_oiii)
-    
+
     return im_mix, im_ha, im_oiii
 
 def calc_eval_metrics(data, compare_to="real", nbins=20, log_bins=True):
