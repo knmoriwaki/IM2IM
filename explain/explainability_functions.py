@@ -111,8 +111,8 @@ def occlusion_load_data(args, prefix_list, device="cuda:0"):
             data_list.append(data)
         target1 = data_list[0] 
         target2 = data_list[1]        
-        target1 = occlude(target1, args.occlusion_size) #(number occluded images, 1, Npix, Npix)
-        target2 = occlude(target2, args.occlusion_size) #(number occluded images, 1, Npix, Npix)
+        target1 = occlude(target1, args.occlusion_size, args.occlusion_stride, args.occlusion_sample) #(number occluded images, 1, Npix, Npix)
+        target2 = occlude(target2, args.occlusion_size, args.occlusion_stride, args.occlusion_sample) #(number occluded images, 1, Npix, Npix)
         source = target1 + target2
         
         if args.model == "pix2pix_2":
@@ -131,12 +131,13 @@ def occlusion_load_data(args, prefix_list, device="cuda:0"):
     source = torch.cat(data_list_occ_s, 0)
     target = torch.cat(data_list_occ_t, 0)
     print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
+    n_occluded = source.size()[0]
 
     target = torch.clamp(target, min=-1.0, max=1.0)
-    return source, target
+    return source, target, n_occluded
 
 
-def occlude(target, occlusion_size=64, masking_type="mean"):
+def occlude(target, occlusion_size=64, stride=32, sample=None, masking_type="mean"):
     """ Occludes the source image.
     Inputs:
         source: torch tensor with the source image of size torch.Size([1, 1, 256, 256])
@@ -158,13 +159,22 @@ def occlude(target, occlusion_size=64, masking_type="mean"):
     occluded_list = []
     rows, cols = target.size()[2:]
 
-    for i in range(0, rows, occlusion_size):
-        for j in range(0, cols, occlusion_size):
-            # Copy the source tensor
-            tmp = target.clone()
-            # Occluding the source with the masking values:
-            tmp[0, 0, i:i + occlusion_size, j:j + occlusion_size] = masking_values
-            occluded_list.append(tmp) 
+    if sample is not None:
+        for i in range(0, rows, stride):
+            for j in range(0, cols, stride):
+                # Copy the target tensor
+                tmp = target.clone()
+                # Occluding the target with the masking values:
+                tmp[0, 0, i:i + occlusion_size, j:j + occlusion_size] = masking_values
+                occluded_list.append(tmp)
+    else:
+        for i in range(0, rows, occlusion_size):
+            for j in range(0, cols, occlusion_size):
+                # Copy the target tensor
+                tmp = target.clone()
+                # Occluding the target with the masking values:
+                tmp[0, 0, i:i + occlusion_size, j:j + occlusion_size] = masking_values
+                occluded_list.append(tmp) 
 
     occluded_target = torch.cat(occluded_list, dim=0)
     return occluded_target

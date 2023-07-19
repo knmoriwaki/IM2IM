@@ -69,6 +69,8 @@ parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, defau
 parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha', 'occlusion'], type=str, default=None, 
                     help="The user needs to choose which XAI expierment to perform.")
 parser.add_argument("--occlusion_size", type=int, default=64, help="Occlusion window size for occlusion sensitivity")
+parser.add_argument("--occlusion_stride", type=int, default=32, help="Occlusion stride for occlusion sensitivity")
+parser.add_argument("--occlusion_sample", type=int, help="Sample id for occlusion sensitivity")
 
 args = parser.parse_args()
 
@@ -206,11 +208,19 @@ def test(device):
     if args.isXAI:
         if args.xai_exp in ["ha", "oiii", "random", "random_ha", "random_oiii", "faint_ha"]:
             source, target = xai_load_data(args, prefix_list, device=device)
-        elif  args.xai_exp=="occlusion":
-            source, target = occlusion_load_data(args, prefix_list, device=device)
-            n_occluded = int(source.size()[2]*source.size()[2]/(args.occlusion_size**2)) # Assumung square image
-            print("# Occluding {}x{} image patches. This leads to {} times more images in the test set".format(args.occlusion_size, args.occlusion_size, n_occluded))
-            prefix_list = [ "run{:d}_index{:d}_occluded{:d}".format(i, j, k) for i in range(args.nrun) for j in range(args.nindex) for k in range(n_occluded) ]
+        elif args.xai_exp=="occlusion":
+                if args.occlusion_sample is not None:
+                    #pdb.set_trace()
+                    prefix_list = [prefix_list[args.occlusion_sample]]
+                    source, target, n_occluded = occlusion_load_data(args, prefix_list, device=device)
+                    print("# Occluding {}x{} image patches. For sample {}".format(args.occlusion_size, args.occlusion_size, prefix_list))
+                    prefix_list = [ "{}_occluded{:d}".format(prefix_list[0], k) for k in range(n_occluded) ]
+                else:
+                    source, target, n_occluded = occlusion_load_data(args, prefix_list, device=device)
+                    print("# Occluding {}x{} image patches for whole test set. This leads to {} times more images in the test set".format(args.occlusion_size, args.occlusion_size, n_occluded))
+                    prefix_list = [ "run{:d}_index{:d}_occluded{:d}".format(i, j, k) for i in range(args.nrun) for j in range(args.nindex) for k in range(n_occluded) ]
+
+                
     else:
         source, target = load_data(args.test_dir, prefix_list, device=device)
 
