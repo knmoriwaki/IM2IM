@@ -231,7 +231,7 @@ def test(device):
         model.save_test_image(args, fid, overwrite=True)
         print("# save {}_*.fits".format(fid))
         
-        if args.xai_exp in ["random", "random_ha", "random_oiii", "faint_ha", "occlusion"]:
+        if args.isXAI:
             fid = "{}/perturbed_input_{}".format(res_dir, p) 
             model.save_source_image(args, fid, overwrite=True)
             print("# save {}_*.fits".format(fid))

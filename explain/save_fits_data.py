@@ -8,7 +8,7 @@ def save_fits_data(image, path, norm=2.0e-7, overwrite=False):
     # norm: set the same normalization factor used in load_data
     # overwrite: False in default
     img = image.squeeze()
-    img = fac * img
+    img = norm * img
     
     hdu = fits.PrimaryHDU(img)
     hdul = fits.HDUList([hdu])
