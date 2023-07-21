@@ -4,10 +4,12 @@ Date: July 2023
 """
 
 import os
+import sys
+# Trouble with finding the modules in the Jupyter Notebook
+sys.path.append('/home/scarlet/IM2IM/explain')
+
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from astropy.io import fits
 from explain.correlation_coefficient import compute_r
 from explain.xai_dataloader import XAIDataLoader
 import pdb
