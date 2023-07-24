@@ -66,6 +66,7 @@ parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, def
 parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, default=10000, help="frequency of saving the generated image")
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
 parser.add_argument("--data_aug", dest="data_aug", type=float, help="Percentage images for OIII data augmentation")
+parser.add_argument("--aug_type", dest="aug_type", choices=['ha', 'oiii', 'both', 'robust'], help="Type of data augmentation")
 
 # XAI parameters #
 parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha', 'occlusion'], type=str, default=None, 
@@ -111,7 +112,7 @@ def load_data(path, prefix_list, device="cuda:0"):
     target = torch.clamp(target, min=-1.0, max=1.0)
     return source, target
 
-def load_augmented_data(path, prefix_list, p_aug=0.1, device="cuda:0"):
+def load_augmented_data(path, prefix_list, aug_type, p_aug=0.1, device="cuda:0"):
     """
     Load augmented data for training. First try only augment using OIII.
     """
@@ -119,11 +120,26 @@ def load_augmented_data(path, prefix_list, p_aug=0.1, device="cuda:0"):
     start_time = time.time()
     print("# loading data from {}".format(path), end=" ")
 
-    # Random selection of 10 of the data for augmentation
-    # Calculate the number of elements (10%) you want to select
+    # Random selection of p% of the data for augmentation
+    # Calculate the number of elements n_aug you want to select
     n_aug = int(len(prefix_list) * p_aug)
     # Randomly select 10% (90 elements) from the list without replacement
     aug_prefix_list = random.sample(prefix_list, n_aug)
+
+    if aug_type == "oiii":
+        a_label = "z1.3_ha"
+    elif aug_type == "ha":
+        a_label = "z2.0_oiii"
+    elif aug_type == "both":
+        a_label = "both"
+    elif aug_type == "robust":
+        #random sample the robustness factor between 0.8 and 1.2
+        a_label = None
+        robustness_factor = 0.4 * torch.rand(n_aug) + 0.8
+        robustness_factor = robustness_factor.view(90, 1, 1, 1)
+    else:
+        print("Error: aug_type must be either 'oiii', 'ha', 'both' or 'robust'")
+        sys.exit(1)
 
     data_list = []
     for label in [ "z1.3_ha", "z2.0_oiii" ]:
@@ -131,8 +147,20 @@ def load_augmented_data(path, prefix_list, p_aug=0.1, device="cuda:0"):
         data = load_fits_image(fnames, norm=args.norm, device=device)
         fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
         aug_data = load_fits_image(fnames, norm=args.norm, device=device)
-        if label == "z1.3_ha":
+        if label == a_label:
             aug_data = aug_data*0.0
+        elif a_label == "both":
+            # No this is not how it can work! Re-think it.
+            # Running through this twice just leads to data with zero values.
+            # I do need two different aug_prefix lists
+            print("Error: 'both' not working yet")
+            sys.exit(1)
+            aug_data = aug_data*0.0
+            print("Augmenting both OIII and Ha", label)
+        elif a_label == None:
+            aug_data = aug_data*robustness_factor
+        else:
+            pass
         data = torch.cat((data, aug_data), 0)
         data_list.append(data)
     source = data_list[0] + data_list[1]
@@ -146,6 +174,7 @@ def load_augmented_data(path, prefix_list, p_aug=0.1, device="cuda:0"):
         target = target2
     
     target = torch.clamp(target, min=-1.0, max=1.0)
+    
     return source, target
     
 def train(device):
@@ -160,7 +189,10 @@ def train(device):
 
     ### load data ###
     prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
-    source, target = load_augmented_data(args.data_dir, prefix_list, args.data_aug, device=None)
+    if args.data_aug:
+        source, target = load_augmented_data(args.data_dir, prefix_list, args.aug_type, args.data_aug, device=None)
+    else:
+        source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
 

@@ -21,3 +21,4 @@ explain/.ipynb_checkpoints/
 
 # Images
 image/*.png
+*.png
