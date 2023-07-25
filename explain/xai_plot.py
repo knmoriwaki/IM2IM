@@ -252,7 +252,7 @@ def plot_r_single_sample(data, results_dir, suffix, nbins=20, log_bins=True):
     plt.close()
 
 
-def plot_two_models_r_vs_k(r_mix_list, r_ha_list, r_oiii_list, r_mix_list2, r_ha_list2, r_oiii_list2, results_dir, title="Insert Title"):
+def plot_two_models_r_vs_k(r_mix_list, r_ha_list, r_oiii_list, r_mix_list2, r_ha_list2, r_oiii_list2, results_dir, mod="None", title="Insert Title"):
     """ 
     Plots r vs k for all test samples in one plot for two GAN models (or two experiments).
     """
@@ -278,7 +278,7 @@ def plot_two_models_r_vs_k(r_mix_list, r_ha_list, r_oiii_list, r_mix_list2, r_ha
     ax.plot(k, m_mix, 'forestgreen', label="original")
     for i in range(len(r_mix2)):
         ax.plot(k, r_mix2[i],  color='lime', alpha=0.01)
-    ax.plot(k, m_mix2, '--', color='lime', label="sigmoid")
+    ax.plot(k, m_mix2, '--', color='lime', label=mod)
     ax.legend()
     ax.set_ylabel('r mix')
     ax.set_xscale('log')
@@ -290,7 +290,7 @@ def plot_two_models_r_vs_k(r_mix_list, r_ha_list, r_oiii_list, r_mix_list2, r_ha
     ax.plot(k, m_ha, 'b', label="original")
     for i in range(len(r_mix2)):
         ax.plot(k, r_ha2[i],  color='c', alpha=0.01)
-    ax.plot(k, m_ha2, '--', color='c', label="sigmoid")
+    ax.plot(k, m_ha2, '--', color='c', label=mod)
     ax.legend()
     ax.set_ylabel('r Ha')
     ax.set_xscale('log')
@@ -301,7 +301,7 @@ def plot_two_models_r_vs_k(r_mix_list, r_ha_list, r_oiii_list, r_mix_list2, r_ha
     ax.plot(k, m_oiii, 'r', label="original")
     for i in range(len(r_mix2)):
         ax.plot(k, r_oiii2[i],  color='orange', alpha=0.01)
-    ax.plot(k, m_oiii2, '--', color='orange', label="sigmoid")
+    ax.plot(k, m_oiii2, '--', color='orange', label=mod)
     ax.legend()
     ax.set_ylabel('r OIII')
     ax.set_xscale('log')
