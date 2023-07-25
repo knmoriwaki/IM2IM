@@ -117,27 +117,29 @@ class XAIDataLoader:
 def has_negative_values(arr):
     return np.any(np.array(arr) < 0)
 
-# Example usage
-if __name__ == "__main__":
-    output_dir =  "../output/"
-    #mname="original_GAN_xai_experiments"
-    #mname="oii_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla"
-    #mname="ReLU_pix2pix_2_bs4_ep1_lambda1000_vanilla"
-    #mname="sigmoid_pix2pix_2_bs4_ep1_lambda1000_vanilla"
-    #mname="ha_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla"
-    mname="both_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla"
-    output_dir = os.path.join(output_dir, mname)
-    nrun = 100
-    nindex = 1   
+def check_negative_values(output_dir, exp_name, nrun=100, nindex=1):
+    """
+    Checks if there are negative values in the generated images.
+    """
     suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
-    exp_name = ["test",  "xai_exp_faint_ha",  "xai_exp_ha", "xai_exp_oiii",  
-                "xai_exp_random",  "xai_exp_random_ha",  "xai_exp_random_oiii"]
-
     for suffix in suffix_list:
-        data_loader = XAIDataLoader(output_dir, exp_name[0], suffix)
+        data_loader = XAIDataLoader(output_dir, exp_name, suffix)
         df = data_loader.fake
         for img in [df['rec'].values[0], df['fakeA'].values[0], df['fakeB'].values[0]]:
             if has_negative_values(img[0]):
-                print("Negative values found!")
+                print("Negative values found in:", output_dir, exp_name)
                 print(suffix)
                 print(np.min(img))
+
+# Example usage
+if __name__ == "__main__":
+    output_dir =  "../output/"
+    mnames=["original_GAN_xai_experiments", "oii_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla", 
+            "ReLU_pix2pix_2_bs4_ep1_lambda1000_vanilla", "sigmoid_pix2pix_2_bs4_ep1_lambda1000_vanilla",
+            "ha_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla", "both_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla"]
+    exp_name = ["test",  "xai_exp_faint_ha",  "xai_exp_ha", "xai_exp_oiii",  
+                "xai_exp_random",  "xai_exp_random_ha",  "xai_exp_random_oiii"]
+    
+    for mname in mnames:
+        out_dir = os.path.join(output_dir, mname)
+        check_negative_values(out_dir, exp_name[0])
