@@ -205,3 +205,55 @@ def compare_exp_testset(output_dir, ref_name, exp_name, nrun=100, nindex=1, nbin
         r_oiii_list.append(r_oiii)
         
     return r_mix_list, r_ha_list, r_oiii_list
+
+
+
+def prepare_r(real, fake, nbins=20, log_bins=True, ldict=False):
+    """
+    Compare the correlation coefficients of one experiment.
+    """
+    r_mix , k_array = compute_r(real["obs"].values[0], fake["rec"].values[0], nbins=nbins, log_bins=log_bins)
+    r_ha , _ = compute_r(real["realA"].values[0], fake["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+    r_oiii , _ = compute_r(real["realB"].values[0], fake["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+
+    if ldict: 
+        r = {}
+        for i in range(len(k_array)-1): 
+            k = k_array[i]
+            r["r_mix_"+str(int(k))]  = r_mix[i]
+            r["r_ha_"+str(int(k))]   = r_ha[i]
+            r["r_oiii_"+str(int(k))] = r_oiii[i]
+        
+        return r_ha, k_array[0:-1]
+    else:
+        return r_mix, r_ha, r_oiii, k_array[0:-1]
+    
+def compare_r_testset(output_dir, exp_name, nrun=100, nindex=1, nbins=20, log_bins=True):
+    """ Construct a list for plotting the correlation r between two experiments against k for the whole test dataset.
+    Inputs: data directories for both experiments (ref_dir and exp_dir)
+            log_bins switch in case the computation of r should run on log(k)
+            nrun ask Kana
+            nindex ask Kana
+    Outputs: three lists containing the k as first entry and then correlation coefficients correspoding to k 
+    for each sample in the test set
+    """
+    
+    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
+    r_mix_list  = []
+    r_ha_list   = []
+    r_oiii_list = []
+    
+    for data_sample in suffix_list:
+        data = XAIDataLoader(output_dir, exp_name, data_sample)
+        data_real = data.real
+        data_fake = data.fake
+        r_mix, r_ha, r_oiii, k = prepare_r(data_real, data_fake, nbins=nbins, log_bins=log_bins, ldict=False)
+        if data_sample == suffix_list[0]:
+            r_mix_list.append(k)
+            r_ha_list.append(k)
+            r_oiii_list.append(k)
+        r_mix_list.append(r_mix)
+        r_ha_list.append(r_ha)
+        r_oiii_list.append(r_oiii)
+        
+    return r_mix_list, r_ha_list, r_oiii_list
