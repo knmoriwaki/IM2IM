@@ -4,6 +4,7 @@ Date: July 2023
 """
 import os
 import pandas as pd
+import numpy as np
 from astropy.io import fits
 from explain.save_fits_data import save_fits
 
@@ -113,21 +114,30 @@ class XAIDataLoader:
         file_name = f"{path}/{fname}.fits"
         save_fits(img, file_name, norm=norm, overwrite=overwrite)
 
+def has_negative_values(arr):
+    return np.any(np.array(arr) < 0)
 
 # Example usage
 if __name__ == "__main__":
     output_dir =  "../output/"
-    suffix = "run71_index0"
+    #mname="original_GAN_xai_experiments"
+    #mname="oii_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla"
+    #mname="ReLU_pix2pix_2_bs4_ep1_lambda1000_vanilla"
+    #mname="sigmoid_pix2pix_2_bs4_ep1_lambda1000_vanilla"
+    #mname="ha_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla"
+    mname="both_augmented_pix2pix_2_bs4_ep1_lambda1000_vanilla"
+    output_dir = os.path.join(output_dir, mname)
+    nrun = 100
+    nindex = 1   
+    suffix_list = [ "run{:d}_index{:d}".format(i, j) for i in range(nrun) for j in range(nindex) ]
     exp_name = ["test",  "xai_exp_faint_ha",  "xai_exp_ha", "xai_exp_oiii",  
                 "xai_exp_random",  "xai_exp_random_ha",  "xai_exp_random_oiii"]
-    #for exp in exp_name:
-    #    data_loader = XAIDataLoader(output_dir, exp, suffix)
-    #    print(data_loader.pert)
-    #    print(data_loader.real)
-    #    print(data_loader.fake)
 
-    exp_name = "xai_exp_occlusion"
-    data_loader = XAIDataLoader(output_dir, exp_name, suffix, n_occ=2)
-    data = data_loader.pert
-    save_me = data['p_s'].values[0]
-    data_loader.write(save_me, output_dir, "savemetest_input")
+    for suffix in suffix_list:
+        data_loader = XAIDataLoader(output_dir, exp_name[0], suffix)
+        df = data_loader.fake
+        for img in [df['rec'].values[0], df['fakeA'].values[0], df['fakeB'].values[0]]:
+            if has_negative_values(img[0]):
+                print("Negative values found!")
+                print(suffix)
+                print(np.min(img))
