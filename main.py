@@ -132,11 +132,13 @@ def load_augmented_data(path, prefix_list, aug_type, p_aug=0.1, device="cuda:0")
         a_label = "z2.0_oiii"
     elif aug_type == "both":
         a_label = "both"
+        aug_prefix_list1 = random.sample(prefix_list, n_aug)
+        aug_prefix_list2 = random.sample(prefix_list, n_aug)
     elif aug_type == "robust":
         #random sample the robustness factor between 0.8 and 1.2
         a_label = None
         robustness_factor = 0.4 * torch.rand(n_aug) + 0.8
-        robustness_factor = robustness_factor.view(90, 1, 1, 1)
+        robustness_factor = robustness_factor.view(n_aug, 1, 1, 1)
     else:
         print("Error: aug_type must be either 'oiii', 'ha', 'both' or 'robust'")
         sys.exit(1)
@@ -145,24 +147,38 @@ def load_augmented_data(path, prefix_list, aug_type, p_aug=0.1, device="cuda:0")
     for label in [ "z1.3_ha", "z2.0_oiii" ]:
         fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
         data = load_fits_image(fnames, norm=args.norm, device=device)
-        fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
-        aug_data = load_fits_image(fnames, norm=args.norm, device=device)
+
         if label == a_label:
+            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
+            aug_data = load_fits_image(fnames, norm=args.norm, device=device)
             aug_data = aug_data*0.0
+            print("Augmenting", label, a_label)
+            print(aug_data.size())
         elif a_label == "both":
-            # No this is not how it can work! Re-think it.
-            # Running through this twice just leads to data with zero values.
-            # I do need two different aug_prefix lists
-            print("Error: 'both' not working yet")
-            sys.exit(1)
-            aug_data = aug_data*0.0
             print("Augmenting both OIII and Ha", label)
-        elif a_label == None:
+            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list1 ]
+            aug_data1 = load_fits_image(fnames, norm=args.norm, device=device)
+            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list2 ]
+            aug_data2 = load_fits_image(fnames, norm=args.norm, device=device)
+            if label == "z1.3_ha":
+                aug_data2 = aug_data2*0.0
+            elif label == "z2.0_oiii":
+                aug_data1 = aug_data1*0.0
+            aug_data = torch.cat((aug_data1, aug_data2), 0)
+            print("Augmenting", label, a_label)
+            print(aug_data.size())   
+        elif a_label == None:            
+            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
+            aug_data = load_fits_image(fnames, norm=args.norm, device=device)
             aug_data = aug_data*robustness_factor
+            print("Augmenting", label, a_label)
+            print(aug_data.size())
         else:
-            pass
+            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
+            aug_data = load_fits_image(fnames, norm=args.norm, device=device)
         data = torch.cat((data, aug_data), 0)
         data_list.append(data)
+    
     source = data_list[0] + data_list[1]
     target1 = data_list[0] 
     target2 = data_list[1] 
