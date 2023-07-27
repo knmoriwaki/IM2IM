@@ -65,8 +65,7 @@ parser.add_argument("--print_freq", dest="print_freq", type=int, default=100, he
 parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, default=5000, help="frequency of saving the latest results")
 parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, default=10000, help="frequency of saving the generated image")
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
-parser.add_argument("--data_aug", dest="data_aug", type=float, help="Percentage images for OIII data augmentation")
-parser.add_argument("--aug_type", dest="aug_type", choices=['ha', 'oiii', 'both', 'robust'], help="Type of data augmentation")
+parser.add_argument("--data_aug", dest="data_aug", type=float, help="Fraction images robust data augmentation between 0. and 1.")
 
 # XAI parameters #
 parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha', 'occlusion'], type=str, default=None, 
@@ -112,7 +111,7 @@ def load_data(path, prefix_list, device="cuda:0"):
     target = torch.clamp(target, min=-1.0, max=1.0)
     return source, target
 
-def load_augmented_data(path, prefix_list, aug_type, p_aug=0.1, device="cuda:0"):
+def load_augmented_data(path, prefix_list, p_aug=0.1, device="cuda:0"):
     """
     Load augmented data for training. First try only augment using OIII.
     """
@@ -126,57 +125,30 @@ def load_augmented_data(path, prefix_list, aug_type, p_aug=0.1, device="cuda:0")
     # Randomly select 10% (90 elements) from the list without replacement
     aug_prefix_list = random.sample(prefix_list, n_aug)
 
-    if aug_type == "oiii":
-        a_label = "z1.3_ha"
-    elif aug_type == "ha":
-        a_label = "z2.0_oiii"
-    elif aug_type == "both":
-        a_label = "both"
-        aug_prefix_list1 = random.sample(prefix_list, n_aug)
-        aug_prefix_list2 = random.sample(prefix_list, n_aug)
-    elif aug_type == "robust":
-        #random sample the robustness factor between 0.8 and 1.2
-        a_label = None
-        robustness_factor = 0.4 * torch.rand(n_aug) + 0.8
-        robustness_factor = robustness_factor.view(n_aug, 1, 1, 1)
-    else:
-        print("Error: aug_type must be either 'oiii', 'ha', 'both' or 'robust'")
-        sys.exit(1)
 
     data_list = []
     for label in [ "z1.3_ha", "z2.0_oiii" ]:
         fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
         data = load_fits_image(fnames, norm=args.norm, device=device)
 
-        if label == a_label:
-            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
-            aug_data = load_fits_image(fnames, norm=args.norm, device=device)
-            aug_data = aug_data*0.0
-            print("Augmenting", label, a_label)
-            print(aug_data.size())
-        elif a_label == "both":
-            print("Augmenting both OIII and Ha", label)
-            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list1 ]
-            aug_data1 = load_fits_image(fnames, norm=args.norm, device=device)
-            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list2 ]
-            aug_data2 = load_fits_image(fnames, norm=args.norm, device=device)
-            if label == "z1.3_ha":
-                aug_data2 = aug_data2*0.0
-            elif label == "z2.0_oiii":
-                aug_data1 = aug_data1*0.0
-            aug_data = torch.cat((aug_data1, aug_data2), 0)
-            print("Augmenting", label, a_label)
-            print(aug_data.size())   
-        elif a_label == None:            
+        if 0. < p_aug < 1.:
+            #random sample the robustness factor between 0.8 and 1.2
+            robustness_factor = 0.4 * torch.rand(n_aug) + 0.8
+            robustness_factor = robustness_factor.view(n_aug, 1, 1, 1)     
             fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
             aug_data = load_fits_image(fnames, norm=args.norm, device=device)
             aug_data = aug_data*robustness_factor
-            print("Augmenting", label, a_label)
+            print("Augmenting", label)
             print(aug_data.size())
-        else:
-            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
-            aug_data = load_fits_image(fnames, norm=args.norm, device=device)
-        data = torch.cat((data, aug_data), 0)
+            print("factor", robustness_factor[1,:,:,:])
+            data = torch.cat((data, aug_data), 0)
+        elif p_aug == 1.:
+            robustness_factor = 0.4 * torch.rand(n_aug) + 0.8
+            robustness_factor = robustness_factor.view(n_aug, 1, 1, 1)    
+            print("Augmenting", label)
+            print("factor", robustness_factor[1,:,:,:])
+            data = data*robustness_factor
+        
         data_list.append(data)
     
     source = data_list[0] + data_list[1]
@@ -190,7 +162,7 @@ def load_augmented_data(path, prefix_list, aug_type, p_aug=0.1, device="cuda:0")
         target = target2
     
     target = torch.clamp(target, min=-1.0, max=1.0)
-    
+
     return source, target
     
 def train(device):
@@ -206,7 +178,7 @@ def train(device):
     ### load data ###
     prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
     if args.data_aug:
-        source, target = load_augmented_data(args.data_dir, prefix_list, args.aug_type, args.data_aug, device=None)
+        source, target = load_augmented_data(args.data_dir, prefix_list, args.data_aug, device=None)
     else:
         source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
