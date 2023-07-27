@@ -3,6 +3,7 @@ import argparse
 import time
 import json
 import pdb
+import random
 
 import torch
 import torch.nn as nn
@@ -64,6 +65,7 @@ parser.add_argument("--print_freq", dest="print_freq", type=int, default=100, he
 parser.add_argument("--save_latest_freq", dest="save_latest_freq", type=int, default=5000, help="frequency of saving the latest results")
 parser.add_argument("--save_image_freq", dest="save_image_freq", type=int, default=10000, help="frequency of saving the generated image")
 parser.add_argument("--save_image_irun", dest="save_image_irun", type=int, default=-1, help="id of saved image during training")
+parser.add_argument("--data_aug", dest="data_aug", type=float, help="Fraction images robust data augmentation between 0. and 1.")
 
 # XAI parameters #
 parser.add_argument("--xai_exp",  choices=['ha', 'oiii', 'random', 'random_ha', 'random_oiii', 'faint_ha', 'occlusion'], type=str, default=None, 
@@ -108,6 +110,60 @@ def load_data(path, prefix_list, device="cuda:0"):
     
     target = torch.clamp(target, min=-1.0, max=1.0)
     return source, target
+
+def load_augmented_data(path, prefix_list, p_aug=0.1, device="cuda:0"):
+    """
+    Load augmented data for training. First try only augment using OIII.
+    """
+
+    start_time = time.time()
+    print("# loading data from {}".format(path), end=" ")
+
+    # Random selection of p% of the data for augmentation
+    # Calculate the number of elements n_aug you want to select
+    n_aug = int(len(prefix_list) * p_aug)
+    # Randomly select 10% (90 elements) from the list without replacement
+    aug_prefix_list = random.sample(prefix_list, n_aug)
+
+
+    data_list = []
+    for label in [ "z1.3_ha", "z2.0_oiii" ]:
+        fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in prefix_list ]
+        data = load_fits_image(fnames, norm=args.norm, device=device)
+
+        if 0. < p_aug < 1.:
+            #random sample the robustness factor between 0.8 and 1.2
+            robustness_factor = 0.4 * torch.rand(n_aug) + 0.8
+            robustness_factor = robustness_factor.view(n_aug, 1, 1, 1)     
+            fnames = [ "{}/{}_{}.fits".format(path, p, label) for p in aug_prefix_list ]
+            aug_data = load_fits_image(fnames, norm=args.norm, device=device)
+            aug_data = aug_data*robustness_factor
+            print("Augmenting", label)
+            print(aug_data.size())
+            print("factor", robustness_factor[1,:,:,:])
+            data = torch.cat((data, aug_data), 0)
+        elif p_aug == 1.:
+            robustness_factor = 0.4 * torch.rand(n_aug) + 0.8
+            robustness_factor = robustness_factor.view(n_aug, 1, 1, 1)    
+            print("Augmenting", label)
+            print("factor", robustness_factor[1,:,:,:])
+            data = data*robustness_factor
+        
+        data_list.append(data)
+    
+    source = data_list[0] + data_list[1]
+    target1 = data_list[0] 
+    target2 = data_list[1] 
+    print("   Time Taken: {:.0f} sec".format(time.time() - start_time)) 
+
+    if args.model == "pix2pix_2":
+        target = torch.cat((target1, target2), 1) #(N, 2, Npix, Npix)
+    else:
+        target = target2
+    
+    target = torch.clamp(target, min=-1.0, max=1.0)
+
+    return source, target
     
 def train(device):
  
@@ -121,7 +177,10 @@ def train(device):
 
     ### load data ###
     prefix_list = [ "rea{:d}/run{:d}_index{:d}".format(irea, i, j) for irea in range(3) for i in range(args.nrun) for j in range(args.nindex) ]
-    source, target = load_data(args.data_dir, prefix_list, device=None)
+    if args.data_aug:
+        source, target = load_augmented_data(args.data_dir, prefix_list, args.data_aug, device=None)
+    else:
+        source, target = load_data(args.data_dir, prefix_list, device=None)
     dataset = MyDataset(source, target)
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
 
