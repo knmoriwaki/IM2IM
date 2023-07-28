@@ -2,10 +2,11 @@ import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pdb  
+ 
 
 from base_model import BaseModel
 from collections import OrderedDict
+from my_retanh import ReTanh
 
 from utils import *
 
@@ -168,7 +169,7 @@ class UnetSkipConnectionBlock(nn.Module):
                                         kernel_size=kw, stride=2,
                                         padding=padw)
             down = [downconv]
-            up = [uprelu, upconv, nn.Tanh()]
+            up = [uprelu, upconv, ReTanh()]
             model = down + [submodule] + up
         elif innermost:
             upconv = nn.ConvTranspose2d(inner_nc, outer_nc,
