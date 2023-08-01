@@ -157,24 +157,39 @@ def occlude(target, occlusion_size=64, stride=32, sample=None, masking_type="mea
 
     assert occlusion_size in [8, 16, 32, 64, 128], "Currently supported window sizes are 8, 16, 32, 64"
     occluded_list = []
-    rows, cols = target.size()[2:]
-
+    
     if sample is not None:
+        im_size = target.size()[-1]
+        padding = occlusion_size - stride
+        pad_left = padding
+        pad_right = padding
+        pad_top = padding
+        pad_bottom = padding
+        print("target initial size", target.size())
+        target = F.pad(target, (pad_left, pad_right, pad_top, pad_bottom), mode='constant', value=100)
+        #print("target padded size", target.size())
+        rows, cols = target.size()[2:]
         for i in range(0, rows, stride):
             for j in range(0, cols, stride):
                 # Copy the target tensor
                 tmp = target.clone()
+                #print("tmp initial size", tmp.size())
                 # Occluding the target with the masking values:
-                tmp[0, 0, i:i + occlusion_size, j:j + occlusion_size] = masking_values
-                occluded_list.append(tmp)
+                tmp[:, :, i:i + occlusion_size, j:j + occlusion_size] = masking_values
+                #print("tmp occluded size", tmp.size())
+                tmp = tmp[:, :, pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+                #print("tmp cropped size", tmp.size())
+                occluded_list.append(tmp) 
     else:
+        rows, cols = target.size()[2:]
         for i in range(0, rows, occlusion_size):
             for j in range(0, cols, occlusion_size):
                 # Copy the target tensor
                 tmp = target.clone()
                 # Occluding the target with the masking values:
                 tmp[0, 0, i:i + occlusion_size, j:j + occlusion_size] = masking_values
-                occluded_list.append(tmp) 
+                occluded_list.append(tmp)
 
     occluded_target = torch.cat(occluded_list, dim=0)
+    #print("occluded_target size", occluded_target.size())
     return occluded_target
