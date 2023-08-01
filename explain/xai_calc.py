@@ -83,6 +83,18 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, sscale=
     
     rows, cols = np.shape(im_mix)
 
+    padding = occlusion_size - stride  # Calculate the padding size
+    pad_left = padding
+    pad_right = padding
+    pad_top = padding
+    pad_bottom = padding
+    counter = np.pad(counter, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+    im_mix = np.pad(im_mix, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+    im_ha = np.pad(im_ha, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+    im_oiii = np.pad(im_oiii, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+
+    rows, cols = np.shape(counter)
+    
     s = 0
     for i in range(0, rows, stride):
         for j in range(0, cols, stride):
@@ -91,8 +103,12 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, sscale=
             im_ha[i:i + occlusion_size, j:j + occlusion_size] += l_ha[s]
             im_oiii[i:i + occlusion_size, j:j + occlusion_size] += l_oiii[s]
             s += 1
-            # I think I can recreate this for counting the visits
-            counter[i:i + occlusion_size, j:j + occlusion_size] += 1
+            counter[i:i+occlusion_size, j:j+occlusion_size] += 1.
+
+    counter = counter[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+    im_mix = im_mix[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+    im_ha = im_ha[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+    im_oiii = im_oiii[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
 
     im_mix = im_mix / counter
     im_ha = im_ha / counter
@@ -239,26 +255,7 @@ def compare_exp_testset(output_dir, ref_name, exp_name, nrun=100, nindex=1, nbin
         
     return r_mix_list, r_ha_list, r_oiii_list
 
-def understand(occlusion_size=64, stride=32):
-
-    im_size = 256
-    counter = np.zeros((im_size,im_size))
-
-    padding = occlusion_size - stride  # Calculate the padding size
-    rows, cols = np.shape(counter)
-    for i in range(0, rows, stride):
-        for j in range(0, cols, stride):
-            pad_left = max(0, -(j - padding))
-            pad_right = max(0, j + occlusion_size - cols + padding)
-            pad_top = max(0, -(i - padding))
-            pad_bottom = max(0, i + occlusion_size - rows + padding)
-            counter = np.pad(counter, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
-            counter[i:i+occlusion_size, j:j+occlusion_size] += 1. #np.ones((occlusion_size, occlusion_size))
-            counter = counter[pad_top:rows + pad_top, pad_left:cols + pad_left]
-
-    return counter
-
-def understand2(occlusion_size=64, stride=32):
+def occlusion(occlusion_size=64, stride=32):
 
     im_size = 256
     counter = np.zeros((im_size,im_size))
@@ -299,7 +296,7 @@ if __name__ == "__main__":
 
     ## start timing 
     start = time.time()
-    counter = understand2(occlusion_size=64, stride=32)
+    counter = occlusion(occlusion_size=64, stride=32)
     #for i in range(60):
     #    plot_counter(counter[i], results_dir, i)
     plot_counter(counter, results_dir, 'outside-loop-padding')
