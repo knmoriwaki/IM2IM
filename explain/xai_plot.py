@@ -152,7 +152,7 @@ def plot_r_occ_sample(output_dir, ref_name, exp_name, results_dir, n_occ, suffix
     plt.show()
     plt.close()
 
-def plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir):
+def plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir, sscale):
     # reproduced map
     label_list = ["mix", "Ha", "OIII"]
     vmin = 0.0
@@ -182,9 +182,10 @@ def plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir):
     # Adjust spacing between subplots
     plt.tight_layout()
     
-    filename ="occlusion_sensitivity_image.png"    
+    filename ="occlusion_sensitivity_image"+sscale+".png"    
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path)
+    print(f"Saved plot {save_path}")
     plt.show()
     plt.close()
 
