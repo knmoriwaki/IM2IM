@@ -10,11 +10,16 @@ sys.path.append('/home/scarlet/IM2IM/explain')
 
 import pandas as pd
 import numpy as np
-from explain.correlation_coefficient import compute_r
-from explain.xai_dataloader import XAIDataLoader
+import matplotlib.pyplot as plt
+import time
+from astropy.io import fits
+from correlation_coefficient import compute_r
+from xai_dataloader import XAIDataLoader
+from xai_plot import plot_occlusion_sensitivity
 import pdb
 
-def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=20, log_bins=True):
+def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, sscale=None, 
+                    occlusion_size=64, stride=32, nbins=20, log_bins=True):
     """
     I want to assign an importance defied by the difference between 
     reference(r_(true-fake)) and experiment(r_(perturbed_true-fake)) to each patch in the occlusion
@@ -22,9 +27,30 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=2
     
     # Read reference data
     data = XAIDataLoader(output_dir, ref_name, suffix)
-    ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0],  nbins=nbins, log_bins=log_bins)
-    ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0],  nbins=nbins, log_bins=log_bins)
-    ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0],  nbins=nbins, log_bins=log_bins)
+    ref_mix , _ = compute_r(data.real["obs"].values[0], data.fake["rec"].values[0], nbins=nbins, log_bins=log_bins)
+    ref_ha , _ = compute_r(data.real["realA"].values[0], data.fake["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
+    ref_oiii , _ = compute_r(data.real["realB"].values[0], data.fake["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+    # Choose spatial scale
+    # Current k vector is expected to look like this (20 bins, log-spaced):
+    # [ 6.28318531    8.14828324   10.567016     13.70372433   17.77153175
+    #  23.04682532   29.88803469   38.7599856    50.26548246   65.18626588
+    #  84.53612802  109.62979461  142.17225402  184.37460259  239.10427751
+    #  310.07988476  402.12385966  521.49012708  676.28902415  877.0383569
+    #  1137.37803217 ]
+    if sscale=="small":
+        k_start = 11 # k[11] = 109.62979461196917
+        k_stop  = 20 # k[20] = 877.0383569, not k[21], because we usually drop k[21]
+    elif sscale=="large":
+        k_start = 0 # k[0] = 6.28318531
+        k_stop  = 5 # k[3] = 13.70372433
+    else:
+        k_start = 0
+        k_stop  = 20 # not k[21], because we usually drop k[21]
+    
+    # Restrict to only the selected bins for large/small/all scale structures
+    ref_mix = ref_mix[k_start:k_stop]
+    ref_ha = ref_ha[k_start:k_stop]
+    ref_oiii = ref_oiii[k_start:k_stop]
 
     im_size = 256
 
@@ -40,6 +66,10 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=2
         r_mix , _ = compute_r(df_p["p_s"].values[0], df_f["rec"].values[0], nbins=nbins, log_bins=log_bins)
         r_ha , _ = compute_r(df_p["p_tA"].values[0], df_f["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
         r_oiii , _ = compute_r(df_p["p_tB"].values[0], df_f["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
+        # Restrict to only the first 10 bins for large scale structures
+        r_mix = r_mix[k_start:k_stop]
+        r_ha = r_ha[k_start:k_stop]
+        r_oiii = r_oiii[k_start:k_stop]
         # Calculate "Score"
         ds_mix = np.sum(abs(ref_mix - r_mix))
         ds_ha = np.sum(abs(ref_ha - r_ha))
@@ -53,17 +83,40 @@ def calc_importance(output_dir, ref_name, exp_name, total_n_occ, suffix, nbins=2
     im_mix  = np.zeros((im_size,im_size))
     im_ha   = np.zeros((im_size,im_size))
     im_oiii = np.zeros((im_size,im_size))
+    counter = np.zeros((im_size,im_size))
     
     rows, cols = np.shape(im_mix)
-    occlusion_size = int(np.sqrt(im_size*im_size/total_n_occ))
+
+    padding = occlusion_size - stride  # Calculate the padding size
+    pad_left = padding
+    pad_right = padding
+    pad_top = padding
+    pad_bottom = padding
+    counter = np.pad(counter, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+    im_mix = np.pad(im_mix, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+    im_ha = np.pad(im_ha, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+    im_oiii = np.pad(im_oiii, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+
+    rows, cols = np.shape(counter)
+    
     s = 0
-    for i in range(0, rows, occlusion_size):
-        for j in range(0, cols, occlusion_size):
+    for i in range(0, rows, stride):
+        for j in range(0, cols, stride):
             # Occluding the source with the masking values:
-            im_mix[i:i + occlusion_size, j:j + occlusion_size] = l_mix[s]
-            im_ha[i:i + occlusion_size, j:j + occlusion_size] = l_ha[s]
-            im_oiii[i:i + occlusion_size, j:j + occlusion_size] = l_oiii[s]
+            im_mix[i:i + occlusion_size, j:j + occlusion_size] += l_mix[s]
+            im_ha[i:i + occlusion_size, j:j + occlusion_size] += l_ha[s]
+            im_oiii[i:i + occlusion_size, j:j + occlusion_size] += l_oiii[s]
             s += 1
+            counter[i:i+occlusion_size, j:j+occlusion_size] += 1.
+
+    counter = counter[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+    im_mix = im_mix[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+    im_ha = im_ha[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+    im_oiii = im_oiii[pad_top:pad_top+im_size, pad_left:pad_left+im_size]
+
+    im_mix = im_mix / counter
+    im_ha = im_ha / counter
+    im_oiii = im_oiii / counter
 
     return im_mix, im_ha, im_oiii
 
@@ -257,3 +310,64 @@ def compare_r_testset(output_dir, exp_name, nrun=100, nindex=1, nbins=20, log_bi
         r_oiii_list.append(r_oiii)
         
     return r_mix_list, r_ha_list, r_oiii_list
+def occlusion(occlusion_size=64, stride=32):
+
+    im_size = 256
+    counter = np.zeros((im_size,im_size))
+
+    padding = occlusion_size - stride  # Calculate the padding size
+    pad_left = padding
+    pad_right = padding
+    pad_top = padding
+    pad_bottom = padding
+    counter = np.pad(counter, ( (pad_top, pad_bottom), (pad_left, pad_right) ), constant_values=(100, 100))
+    rows, cols = np.shape(counter)
+    for i in range(0, rows, stride):
+        for j in range(0, cols, stride):
+            counter[i:i+occlusion_size, j:j+occlusion_size] += 1. #np.ones((occlusion_size, occlusion_size))
+
+    counter = counter[pad_top:im_size, pad_left:im_size] # Why does this work?
+    return counter
+
+def plot_counter(counter, results_dir, name):
+    print(np.max(counter))
+    im = plt.imshow(counter, interpolation="none")
+    plt.colorbar(im, orientation='horizontal', pad=0.2)
+    filename =str(name)+"_counter.png"    
+    save_path = os.path.join(results_dir, filename)    
+    plt.savefig(save_path)
+    print(f"Saved plot {save_path}")
+    plt.show()
+    plt.close()
+
+if __name__ == "__main__":
+    output_dir = "../output/original_GAN_xai_experiments"
+    names = ['test', 'xai_exp_occlusion']
+    results_dir = "../output/original_GAN_xai_experiments/xai_occlusion_results/"
+    nrun = 0
+    nindex = 1
+    total_n_occ = 16
+    suffix=f"run71_index0"
+
+    ## start timing 
+    start = time.time()
+    counter = occlusion(occlusion_size=64, stride=32)
+    #for i in range(60):
+    #    plot_counter(counter[i], results_dir, i)
+    plot_counter(counter, results_dir, 'outside-loop-padding')
+
+    #im_mix, im_ha, im_oiii = calc_importance(output_dir, names[0], names[1], 
+    #                                         1024, suffix, sscale="large", stride=8, nbins=20, log_bins=True)
+    
+    #plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir, "large") 
+
+    #im_mix, im_ha, im_oiii = calc_importance(output_dir, names[0], names[1], 
+    #                                         1024, suffix, sscale="small", stride=8, nbins=20, log_bins=True)
+    
+    #plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir, "small") 
+
+    #im_mix, im_ha, im_oiii = calc_importance(output_dir, names[0], names[1], 
+    #                                         1024, suffix, sscale=None, stride=8, nbins=20, log_bins=True)
+    
+    #plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir, "all_scales") 
+    print(time.time() - start, "seconds elapsed")

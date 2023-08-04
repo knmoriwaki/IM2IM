@@ -60,4 +60,12 @@ fi
 
 
 
+# Occlusion with sliding window
+experiments=("occlusion")
+stride=8
+for xai_exp in "${experiments[@]}"
+do
+    python main.py --name $name --gpu_ids $igpu --test_dir $test_dir --output_dir $output_dir --results_dir $results_dir --nrun 100 --model $model --load_iter $load_iter --norm $norm --isXAI --xai_exp $xai_exp --occlusion_stride $stride --occlusion_sample 71
+done
+
 

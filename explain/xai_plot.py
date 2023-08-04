@@ -55,6 +55,62 @@ def plot_true_fake_maps(data, results_dir, exp_name='test', suffix=f"run0_index0
     plt.show()
     plt.close()
 
+def plot_diff_map(data, results_dir, exp_name, n_occ=None, suffix=f"run0_index0"):
+    """
+    Expects input from the XAIDataLoader
+    """
+    df_fake = data.fake
+    df_real = data.real
+    if data.pert is not None:
+        # In case that the source data was pertubed we want to see the perturbed
+        # data instead of the original (real) data
+        df_real = data.pert 
+    
+    #vmin = -2.0e-07
+    #vmax = 2.0e-07
+    vmin = 0
+    vmax = 9.0e-08  
+    #vmax = np.max(df_real['obs'].values[0])
+    
+    _, axs = plt.subplots(3,3, figsize=(15, 8))
+    
+    col = df_real.columns
+    for i in range(len(col)):    
+        ax = axs[0][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        ax.imshow(df_real[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+
+    col = df_fake.columns
+    for i in range(len(col)):    
+        ax = axs[1][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        ax.imshow(df_fake[col[i]].values[0], interpolation="none", vmin=vmin, vmax=vmax)
+
+    # Create a diverging color map centered around zero
+    cmap = plt.get_cmap('coolwarm')
+    rcol = df_real.columns
+    fcol = df_fake.columns
+    for i in range(len(col)):    
+        ax = axs[2][int(i%3)]
+        ax.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
+        ax.set_title(col[i])
+        delta = df_real[rcol[i]].values[0] - df_fake[fcol[i]].values[0]
+        im = ax.imshow(delta, interpolation="none", cmap=cmap)
+        cbar = plt.colorbar(im, ax=ax, orientation='horizontal', pad=0.05)
+        cbar.set_label('Difference')
+    
+    
+    if n_occ is not None:
+        filename =f"diff_map_{suffix}_{exp_name}_occluded{n_occ}_image.png"    
+    else:
+        filename =f"{exp_name}_{suffix}_image.png"
+    save_path = os.path.join(results_dir, filename)    
+    plt.savefig(save_path) 
+    plt.show()
+    plt.close()
+
 def plot_perturbed_map(data, results_dir, exp_name, n_occ=None, suffix=f"run0_index0"):
     """
     Expects input from the XAIDataLoader
@@ -120,9 +176,9 @@ def plot_r_occ_sample(output_dir, ref_name, exp_name, results_dir, n_occ, suffix
         r_ha , _ = compute_r(data.pert["p_tA"].values[0], data.fake["fakeA"].values[0], nbins=nbins, log_bins=log_bins)
         r_oiii , _ = compute_r(data.pert["p_tB"].values[0], data.fake["fakeB"].values[0], nbins=nbins, log_bins=log_bins)
         k = k_array[0:-1]
-        plt.plot(k, r_mix, 'k', alpha=0.05)
-        plt.plot(k, r_ha, 'b', alpha=0.1)
-        plt.plot(k, r_oiii, 'r', alpha=0.1)
+        plt.plot(k, r_mix, 'k', alpha=0.01)
+        plt.plot(k, r_ha, 'b', alpha=0.05)
+        plt.plot(k, r_oiii, 'r', alpha=0.05)
         l_mix.append(r_mix)
         l_ha.append(r_ha)
         l_oiii.append(r_oiii)
@@ -154,7 +210,7 @@ def plot_r_occ_sample(output_dir, ref_name, exp_name, results_dir, n_occ, suffix
     plt.show()
     plt.close()
 
-def plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir):
+def plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir, sscale):
     # reproduced map
     label_list = ["mix", "Ha", "OIII"]
     vmin = 0.0
@@ -184,9 +240,10 @@ def plot_occlusion_sensitivity(im_mix, im_ha, im_oiii, results_dir):
     # Adjust spacing between subplots
     plt.tight_layout()
     
-    filename ="occlusion_sensitivity_image.png"    
+    filename ="occlusion_sensitivity_image"+sscale+".png"    
     save_path = os.path.join(results_dir, filename)    
     plt.savefig(save_path)
+    print(f"Saved plot {save_path}")
     plt.show()
     plt.close()
 
@@ -312,3 +369,18 @@ def plot_two_models_r_vs_k(r_mix_list, r_ha_list, r_oiii_list, r_mix_list2, r_ha
     print(f"Saved plot {results_dir}/{name}.png")
     plt.show()
     plt.close()
+
+
+
+
+if __name__ == "__main__":
+    output_dir = "../output"
+    names = ['test', 'xai_exp_occlusion']
+    results_dir = "../output/xai_occlusion_results/"
+    nrun = 0
+    nindex = 1
+    total_n_occ = 16
+    suffix=f"run71_index0"
+
+    df = XAIDataLoader(output_dir, names[1], suffix, n_occ=5)
+    plot_diff_map(df, results_dir, names[1], n_occ=5, suffix=suffix)
