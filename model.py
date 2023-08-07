@@ -2,6 +2,7 @@ import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pdb
 
 from base_model import BaseModel
 from collections import OrderedDict
@@ -82,6 +83,7 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
                                         create_graph=True, retain_graph=True, only_inputs=True)
         gradients = gradients[0].view(real_data.size(0), -1)  # flat the data
         gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean() * lambda_gp        # added eps
+        gradient_penalty = gradient_penalty.detach() # Not sure if correct
         return gradient_penalty, gradients
     else:
         return 0.0, None
@@ -107,7 +109,7 @@ class GANLoss(nn.Module):
         else:
             raise NotImplementedError('gan mode %s not implemented' % gan_mode)
 
-    def __call__(self, prediction, target_is_real):
+    def __call__(self, prediction, target_is_real, gradient_penalty=0.0):
 
         if self.gan_mode in ['lsgan', 'vanilla']:
             if target_is_real:
@@ -115,12 +117,18 @@ class GANLoss(nn.Module):
             else:
                 target_tensor = self.fake_label
             loss = self.loss(prediction, target_tensor.expand_as(prediction))
-        elif self.gan_mode == 'wgangp' or self.gan_mode == 'wgan':
+        elif self.gan_mode == 'wgangp':
             if target_is_real:
-                loss = -prediction.mean()
+                loss = -prediction.mean() + gradient_penalty # gradient_penalty here includes lambda_gp
             else:
-                loss = prediction.mean()
+                loss = prediction.mean() + gradient_penalty
+        elif self.gan_mode == 'wgan':
+            if target_is_real:
+                loss = -prediction.mean() 
+            else:
+                loss = prediction.mean() 
         return loss
+    
 
 class UnetGenerator(nn.Module):
 
@@ -249,13 +257,14 @@ class Pix2Pix(BaseModel):
         if self.isTrain:
             self.netD = define_D(opt, gpu_ids=self.gpu_ids)
 
-            self.criterionGAN = GANLoss(self.gan_mode).to(self.device)
+            self.criterionGAN = GANLoss(self.gan_mode).to(self.device) 
             self.criterionL1 = torch.nn.L1Loss(reduction="mean")
 
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr*2, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+
 
     def set_input(self, input):
         AtoB = True
@@ -268,12 +277,14 @@ class Pix2Pix(BaseModel):
     def backward_D(self):
 
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
-        pred_fake = self.netD(fake_AB.detach())
-        self.loss_D_fake = self.criterionGAN(pred_fake, False)
-
         real_AB = torch.cat((self.real_A, self.real_B), 1)
+        
+        gradient_penalty, _ = cal_gradient_penalty(self.netD, real_AB, fake_AB, self.device, type='mixed')
+
+        pred_fake = self.netD(fake_AB.detach())
+        self.loss_D_fake = self.criterionGAN(pred_fake, False, gradient_penalty=gradient_penalty)
         pred_real = self.netD(real_AB)
-        self.loss_D_real = self.criterionGAN(pred_real, True)
+        self.loss_D_real = self.criterionGAN(pred_real, True, gradient_penalty=gradient_penalty)
 
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
         self.loss_D.backward()
