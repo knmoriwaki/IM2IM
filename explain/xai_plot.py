@@ -27,7 +27,7 @@ def plot_true_fake_maps(data, results_dir, exp_name='test', suffix=f"run0_index0
         # data instead of the original (real) data
         df_real = data.pert 
     
-    vmin = 0
+    vmin = np.min(df_fake['fakeB'].values[0])
     #vmax = 9.0e-08
     vmax = np.max(df_fake['fakeA'].values[0])
     print("min", np.min(df_fake['fakeB'].values[0]))
