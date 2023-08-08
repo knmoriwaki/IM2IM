@@ -19,9 +19,9 @@ Run training and testing can be run using
 ```
 ./run.sh
 ```
-The current implementation allows training `gan_mode=vanilla`, ~~`gan_mode=wgan`~~, and `gan_mode=wgangp`. 
+The implementation in this branch allows training ~~`gan_mode=vanilla`~~, ~~`gan_mode=wgan`~~, and `gan_mode=wgangp`. 
 
-Use `plot.ipynb` to check the model performance. 
+Use `plot.ipynb` to check the model performance. More scripts for checking the model performance can be found in branch #4. 
 
 - Loss function:  
 ![loss](image/loss.png) 
