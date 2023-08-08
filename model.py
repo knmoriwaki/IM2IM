@@ -83,7 +83,7 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
                                         create_graph=True, retain_graph=True, only_inputs=True)
         gradients = gradients[0].view(real_data.size(0), -1)  # flat the data
         gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean() * lambda_gp        # added eps
-        gradient_penalty = gradient_penalty.detach() # Not sure if correct
+        #gradient_penalty = gradient_penalty.detach() # Not sure if correct
         return gradient_penalty, gradients
     else:
         return 0.0, None
@@ -313,6 +313,7 @@ class Pix2Pix(BaseModel):
         self.set_requires_grad(self.netD, False)  # D requires no gradients when optimizing G
         
         self.optimizer_G.zero_grad()        # set G's gradients to zero
+        self.forward()                   # compute fake images: G(A)
         self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # update G's weights
 
