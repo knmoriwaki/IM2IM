@@ -15,23 +15,13 @@ Install the following libraries with `pip`.
 
 ## How to Run
 
-Training
-```
-python main.py --isTrain 
-```
-
-Test
-```
-python main.py
-```
-
-Run both training and test code by 
+Run training and testing can be run using 
 ```
 ./run.sh
 ```
-You can change the parameters in run.sh.
+The current implementation allows training `gan_mode=vanilla`, ~~`gan_mode=wgan`~~, and `gan_mode=wgangp`. 
 
-Use plot.ipynb to check the model performance. 
+Use `plot.ipynb` to check the model performance. 
 
 - Loss function:  
 ![loss](image/loss.png) 
