@@ -39,7 +39,7 @@ You can change the parameters in run.sh. This branch only supports `gan_mode=van
 
 ## How to evaluate
 
-For the evaluation a lot of different Jupyter notebooks are available.
+For the evaluation a lot of different Jupyter notebooks are available. These can be found within the `explain` subdirectory.
 
 - `xai_exp_analysis.ipynb` provides a collection of plots to analyze a single XAI experiment. The current one focuses on `faint_ha`, but could be replaced with another one.
 - `xai_analysis_single_signal.ipynb` analyzes two XAI experiments side by side. Currently, these are `only_ha` and `only_oiii`, but could be replaced with two other experiments.
