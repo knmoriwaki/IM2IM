@@ -60,6 +60,7 @@ How to set up the Jupyter notebook properly can be found in the UTAP Wiki.
 
 ## References
 
+XAI occlusion sensitivity inspired by [(Zeiler et al. 2014)](https://arxiv.org/abs/1311.2901)
 
 ## Known Issues
 
