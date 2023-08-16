@@ -41,7 +41,13 @@ You can change the parameters in run.sh. This branch only supports `gan_mode=van
 
 For the evaluation a lot of different Jupyter notebooks are available.
 
-Please set the python path for running the Jupyter notebooks. For example like this. 
+- `xai_exp_analysis.ipynb` provides a collection of plots to analyze a single XAI experiment. The current one focuses on `faint_ha`, but could be replaced with another one.
+- `xai_analysis_single_signal.ipynb` analyzes two XAI experiments side by side. Currently these are `only_ha` and `only_oiii`, but could be replaced with two other experiments.
+- `plotting_maps_different_GANs.ipynb` is a simple Jupyter notebook only plotting the maps for training experiments. It is useful to visually compare maps.
+- 
+- `my_xai_power_spectrum_development.ipynb` is intended to compare the power spectrum of a generated (perturbed) image with the test dataset statistics. This notebook is unfinished.
+
+Please set the Python path for running the Jupyter notebooks. For example like this. 
 ```
 ssh cat4
 cd [IM2IM]
