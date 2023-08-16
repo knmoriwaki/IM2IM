@@ -39,7 +39,7 @@ You can change the parameters in run.sh. This branch only supports `gan_mode=van
 
 ## How to evaluate
 
-For the evaluation a lot of different Jupyter notebooks are available.
+For the evaluation a lot of different Jupyter notebooks are available. These can be found within the `explain` subdirectory.
 
 - `xai_exp_analysis.ipynb` provides a collection of plots to analyze a single XAI experiment. The current one focuses on `faint_ha`, but could be replaced with another one.
 - `xai_analysis_single_signal.ipynb` analyzes two XAI experiments side by side. Currently, these are `only_ha` and `only_oiii`, but could be replaced with two other experiments.
@@ -60,6 +60,7 @@ How to set up the Jupyter notebook properly can be found in the UTAP Wiki.
 
 ## References
 
+XAI occlusion sensitivity inspired by [(Zeiler et al. 2014)](https://arxiv.org/abs/1311.2901)
 
 ## Known Issues
 
