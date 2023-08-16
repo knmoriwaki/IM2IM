@@ -23,11 +23,7 @@ Install the following libraries with `pip`:
 
 If any library is missing you can simply install it. Please also note that you might need to set the python path, especially when using Jupyter notebook. 
 ```
-ssh cat4
-cd [IM2IM]
-. [xai_venv]/bin/activate
 export PYTHONPATH=$HOME/IM2IM:$PYTHONPATH
-jupyter-notebook --no-browser --port=8889
 ```
 How to set up the Jupyter notebook properly can be found in the UTAP Wiki. 
 
@@ -35,14 +31,25 @@ How to set up the Jupyter notebook properly can be found in the UTAP Wiki.
 
 For training first, activate the corresponding Python environment for inference and then run the training, testing and the XAI experiments using 
 ```
+ssh cat4
+cd [IM2IM]
 ./srun.sh
 ```
 You can change the parameters in run.sh. This branch only supports `gan_mode=vanilla`. 
 
 ## How to evaluate
 
-For the evaluation a lot of different Jupyter notebooks are available. 
+For the evaluation a lot of different Jupyter notebooks are available.
 
+Please set the python path for running the Jupyter notebooks. For example like this. 
+```
+ssh cat4
+cd [IM2IM]
+. [xai_venv]/bin/activate
+export PYTHONPATH=$HOME/IM2IM:$PYTHONPATH
+jupyter-notebook --no-browser --port=8889
+```
+How to set up the Jupyter notebook properly can be found in the UTAP Wiki. 
 
 ## References
 
