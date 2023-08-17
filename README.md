@@ -33,7 +33,8 @@ For training first, activate the corresponding Python environment for inference 
 ```
 ssh cat4
 cd [IM2IM]
-./srun.sh
+./run.sh #Training
+./srun.sh #XAI
 ```
 You can change the parameters in run.sh. This branch only supports `gan_mode=vanilla`. 
 
