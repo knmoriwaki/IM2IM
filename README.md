@@ -53,7 +53,6 @@ Please set the Python path for running the Jupyter notebooks. For example like t
 ```
 ssh cat4
 cd [IM2IM]
-. [xai_venv]/bin/activate
 export PYTHONPATH=$HOME/IM2IM:$PYTHONPATH
 jupyter-notebook --no-browser --port=8889
 ```
