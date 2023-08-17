@@ -15,7 +15,7 @@ total_epochs=$(( n_epochs + n_epochs_decay ))
 lambda=1000
 
 #gan_mode=vanilla
-gan_mode=wgan
+gan_mode=wgangp
 
 name=${model}_bs${batch_size}_ep${total_epochs}_lambda${lambda}_${gan_mode}
 
