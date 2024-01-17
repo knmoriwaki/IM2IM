@@ -15,21 +15,32 @@ Install the following libraries with `pip`.
 
 ## How to Run
 
-Training
+Specify the desired model using the `--model` flag when running the program. There are two available models:
+
+- **pix2pix**: for 2D images
+
+- **vox2vox**: for 3D cubes
+
+You can set mutliple input_id and/or output_id.
+
+
+### Example Usage
+
+- **Training**
 ```
-python main.py --isTrain 
+python main.py --isTrain --model pix2pix --input_id comb --output_id ha oiii
 ```
 
-Test
+- **Test**
 ```
-python main.py
+python main.py --model pix2pix --input_id comb --output_id ha oiii
 ```
 
-Run both training and test code by 
+Instead of manually specifying parameters with the commands mentioned above, you can execute the script `run.sh` as follows: 
 ```
 ./run.sh
 ```
-You can change the parameters in run.sh.
+
 
 Use plot.ipynb to check the model performance. 
 
@@ -42,12 +53,6 @@ Use plot.ipynb to check the model performance.
 - Images generated during training:  
 ![iter](image/training_iter.png)
 
-You can check the model structure in the output file 
-
-
-- Input shape: (batch_size, input_nc, input_dim, input_dim)
-
-- Output shape: (batch_size, output_nc, output_dim, output_dim)
 
 
 ## References
@@ -59,6 +64,6 @@ You can check the model structure in the output file
 
 - Network outputs nan or inf values
 
-These errors were due to very large/small values in some of the discriminator's output patches. To avoid this, one should decrease the number of patches in the output. One simple way is to increase the number of layers.
+These errors were due to very large/small values in some of the discriminator's output patches. One can avoid this by decreasing the number of patches in the output. A simple way is to increase the number of layers.
  
 
