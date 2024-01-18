@@ -26,9 +26,9 @@ mkdir -p ./tmp
 norm=2.0e-7
 igpu=1
 
-python main.py --name $name --isTrain --gpu_ids $igpu --data_dir $data_dir --output_dir $output_dir --ndata 300 --nindex 1 --model $model --batch_size $batch_size --n_epochs $n_epochs --n_epochs_decay $n_epochs_decay --print_freq 1 --save_latest_freq 10000 --save_image_freq 1000 --norm $norm --lambda_L1 $lambda --gan_mode $gan_mode --input_id z1.3_ha z2.0_oiii --output_id z1.3_ha
+python main.py --name $name --isTrain --gpu_ids $igpu --data_dir $data_dir --output_dir $output_dir --ndata 300 --nindex 100 --model $model --batch_size $batch_size --n_epochs $n_epochs --n_epochs_decay $n_epochs_decay --print_freq 1 --save_latest_freq 10000 --save_image_freq 1000 --norm $norm --lambda_L1 $lambda --gan_mode $gan_mode --source_id total_map --target_id z1.3_ha z2.0_oiii
 
-python main.py --name $name --gpu_ids $igpu --data_dir $test_dir --output_dir $output_dir --ndata 100 --model $model --load_iter -1 --norm $norm --input_id z1.3_ha z2.0_oiii --output_id z1.3_ha 
+python main.py --name $name --gpu_ids $igpu --data_dir $test_dir --output_dir $output_dir --ndata 100 --model $model --load_iter -1 --norm $norm --source_id total_map --target_id z1.3_ha z2.0_oiii
 
 
 

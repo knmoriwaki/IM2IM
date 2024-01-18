@@ -21,19 +21,19 @@ Specify the desired model using the `--model` flag when running the program. The
 
 - **vox2vox**: for 3D cubes
 
-You can set mutliple input_id and/or output_id.
+You can set mutliple sources and/or targets.
 
 
 ### Example Usage
 
 - **Training**
 ```
-python main.py --isTrain --model pix2pix --input_id comb --output_id ha oiii
+python main.py --isTrain --model pix2pix --source_id comb --target_id ha oiii
 ```
 
 - **Test**
 ```
-python main.py --model pix2pix --input_id comb --output_id ha oiii
+python main.py --model pix2pix --source_id comb --target_id ha oiii
 ```
 
 Instead of manually specifying parameters with the commands mentioned above, you can execute the script `run.sh` as follows: 

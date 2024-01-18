@@ -47,8 +47,8 @@ def define_G(opt, gpu_ids=[]):
 
     G = UnetGenerator(
             block = UnetSkipConnectionBlock,
-            input_nc = len(opt.input_id), 
-            output_nc = len(opt.output_id), 
+            input_nc = len(opt.source_id), 
+            output_nc = len(opt.target_id), 
             ngf = opt.hidden_dim_G, 
             n_layers = opt.nlayer_G
         )
@@ -57,7 +57,7 @@ def define_G(opt, gpu_ids=[]):
 def define_D(opt, gpu_ids=[]):
 
     D = NLayerDiscriminator(
-            input_nc = len(opt.input_id) + len(opt.output_id),
+            input_nc = len(opt.source_id) + len(opt.target_id),
             ndf = opt.hidden_dim_D,
             n_layers = opt.nlayer_D
             )
@@ -68,8 +68,8 @@ def define_G3D(opt, gpu_ids=[]):
 
     G = UnetGenerator(
             block = UnetSkipConnectionBlock3D,
-            input_nc = len(opt.input_id), 
-            output_nc = len(opt.output_id), 
+            input_nc = len(opt.source_id), 
+            output_nc = len(opt.target_id), 
             ngf = opt.hidden_dim_G, 
             n_layers = opt.nlayer_G
         )
@@ -78,7 +78,7 @@ def define_G3D(opt, gpu_ids=[]):
 def define_D3D(opt, gpu_ids=[]):
 
     D = NLayerDiscriminator3D(
-            input_nc = len(opt.input_id) + len(opt.output_id),
+            input_nc = len(opt.source_id) + len(opt.target_id),
             ndf = opt.hidden_dim_D,
             n_layers = opt.nlayer_D
             )
@@ -422,7 +422,7 @@ class Pix2Pix(BaseModel):
     def save_test_image(self, opt, fid, overwrite=False):
         with torch.no_grad():
             self.forward()
-            for iout in range(len(opt.output_id)):
+            for iout in range(len(opt.target_id)):
                 fname = "{}_{:d}.fits".format(fid, iout)
                 save_image(self.fake_B[0][iout], fname, opt.norm, overwrite=overwrite)
       
