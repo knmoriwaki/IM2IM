@@ -350,6 +350,8 @@ class Pix2Pix(BaseModel):
         BaseModel.__init__(self, opt)
 
         self.gan_mode = opt.gan_mode
+        self.model = opt.model
+        self.lambda_L1 = opt.lambda_L1
        
         self.loss_names = [ "G_GAN", "G_L1", "D_real", "D_fake" ]
         self.visual_names = [ "real_A", "real_B", "fake_B"]
@@ -401,7 +403,12 @@ class Pix2Pix(BaseModel):
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         
-        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.lambda_L1
+        
+        if self.model == "pix2pix_2":
+            fake_A = torch.sum(self.fake_B, 1)
+            fake_A = torch.unsqueeze(fake_A, 1)
+            self.loss_G_L1 += self.criterionL1(fake_A, self.real_A) * self.lambda_L1
         
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
         self.loss_G.backward()
