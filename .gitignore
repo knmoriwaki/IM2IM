@@ -1,14 +1,10 @@
 __pycache__/
-calculation/output/
-calculation/*.o
-calculation/calc_ps
-calculation/calc_mean
-calculation/one_point_pdf
-calculation/peak_2d
 output/
 training_data/
 val_data/
 test_data/
 tmp/
+Lya_data/
 image/.ipynb_checkpoints/
+other_models/
 xxx/

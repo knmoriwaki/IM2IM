@@ -11,6 +11,8 @@ from utils import *
 def MyModel(args):
     if "pix2pix" in args.model:
         model = Pix2Pix(opt=args)
+    elif "vox2vox" in args.model:
+        model = Vox2Vox(opt=args)
     else:
         print("Error: unknown model", file=sys.stderr)
         sys.exit(1)
@@ -33,7 +35,7 @@ def init_net(net, gpu_ids=[]):
         classname = m.__class__.__name__
         if hasattr(m, "weight") and (classname.find("Conv") != -1 or classname.find("Linear") != -1):
             nn.init.normal_(m.weight.data, 0.0, init_gain)
-        elif classname.find("BatchNorm2d") != -1:
+        elif classname.find("BatchNorm") != -1 :
             nn.init.normal_(m.weight.data, 1.0, init_gain)
             nn.init.constant_(m.bias.data, 0.0)
 
@@ -43,19 +45,53 @@ def init_net(net, gpu_ids=[]):
 
 def define_G(opt, gpu_ids=[]):
 
+    if opt.input_noise:
+        n_feature_in = opt.n_feature_in + 1
+    else:
+        n_feature_in = opt.n_feature_in
+
     G = UnetGenerator(
-            input_nc = opt.input_nc, 
-            output_nc = opt.output_nc, 
+            block = UnetSkipConnectionBlock,
+            input_nc = n_feature_in, 
+            output_nc = opt.n_feature_out, 
             ngf = opt.hidden_dim_G, 
-            dropout = opt.dropout,
             n_layers = opt.nlayer_G
         )
+
     return init_net(G, gpu_ids)
 
 def define_D(opt, gpu_ids=[]):
 
     D = NLayerDiscriminator(
-            input_nc = opt.input_nc + opt.output_nc,
+            input_nc = opt.n_feature_in + opt.n_feature_out,
+            ndf = opt.hidden_dim_D,
+            n_layers = opt.nlayer_D
+            )
+
+    return init_net(D, gpu_ids)
+
+def define_G3D(opt, gpu_ids=[]):
+
+    if opt.input_noise:
+        n_feature_in = opt.n_feature_in + 1
+    else:
+        n_feature_in = opt.n_feature_in
+
+    G = UnetGenerator(
+        block = UnetSkipConnectionBlock3D,
+        input_nc = n_feature_in,
+        output_nc = opt.n_feature_out,
+        ngf = opt.hidden_dim_G, 
+        n_layers = opt.nlayer_G,
+        dropout = opt.dropout
+    )
+
+    return init_net(G, gpu_ids)
+
+def define_D3D(opt, gpu_ids=[]):
+
+    D = NLayerDiscriminator3D(
+            input_nc = opt.n_feature_in + opt.n_feature_out,
             ndf = opt.hidden_dim_D,
             n_layers = opt.nlayer_D
             )
@@ -124,17 +160,17 @@ class GANLoss(nn.Module):
 
 class UnetGenerator(nn.Module):
 
-    def __init__(self, input_nc, output_nc, ngf, dropout, n_layers=5):
+    def __init__(self, block, input_nc, output_nc, ngf, dropout=0, n_layers=5):
         super().__init__()
 
         nf_mult = min(2 ** (n_layers-1), 8)
         nf_mult_prev = min(2 ** (n_layers-2), 8)
-        unet_block = UnetSkipConnectionBlock(ngf * nf_mult_prev, ngf * nf_mult, input_nc=None, innermost=True)
+        unet_block = block(ngf * nf_mult_prev, ngf * nf_mult, input_nc=None, innermost=True)
         for n in range(1, n_layers-1):
             nf_mult = nf_mult_prev
             nf_mult_prev = min(2 ** (n_layers - n - 2), 8)
-            unet_block = UnetSkipConnectionBlock(ngf * nf_mult_prev, ngf * nf_mult, input_nc=None, submodule=unet_block)
-        self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True)
+            unet_block = block(ngf * nf_mult_prev, ngf * nf_mult, input_nc=None, dropout=dropout, submodule=unet_block)
+        self.model = block(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True)
 
     def forward(self, input):
         return self.model(input)
@@ -146,7 +182,7 @@ class UnetSkipConnectionBlock(nn.Module):
     |-- downsampling -- |submodule| -- upsampling --|
     """
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.InstanceNorm2d, dropout=0, last_activation=nn.Tanh()):
         super().__init__()
 
         #padw = "same" #padding="same" is not supported for strided convolutions
@@ -158,16 +194,16 @@ class UnetSkipConnectionBlock(nn.Module):
         downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=kw,
                              stride=2, padding=padw, bias=True)
         downrelu = nn.LeakyReLU(0.2, True)
-        downnorm = nn.BatchNorm2d(inner_nc)
+        downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
-        upnorm = nn.BatchNorm2d(outer_nc)
+        upnorm = norm_layer(outer_nc)
 
         if outermost:
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
                                         kernel_size=kw, stride=2,
                                         padding=padw)
             down = [downconv]
-            up = [uprelu, upconv, nn.Tanh()]
+            up = [uprelu, upconv, last_activation]
             model = down + [submodule] + up
         elif innermost:
             upconv = nn.ConvTranspose2d(inner_nc, outer_nc,
@@ -183,8 +219,8 @@ class UnetSkipConnectionBlock(nn.Module):
             down = [downrelu, downconv, downnorm]
             up = [uprelu, upconv, upnorm]
 
-            if use_dropout:
-                model = down + [submodule] + up + [nn.Dropout(0.5)]
+            if dropout > 0:
+                model = down + [submodule] + up + [nn.Dropout(dropout)]
             else:
                 model = down + [submodule] + up
 
@@ -195,7 +231,6 @@ class UnetSkipConnectionBlock(nn.Module):
             return self.model(x)
         else:   # add skip connections
             return torch.cat([x, self.model(x)], 1)
-
 
 class NLayerDiscriminator(nn.Module):
 
@@ -209,7 +244,7 @@ class NLayerDiscriminator(nn.Module):
 
         nf_mult = 1
         nf_mult_prev = 1
-        for n in range(1, n_layers):  # gradually increase the number of filters
+        for n in range(1, n_layers-1):  # gradually increase the number of filters
             nf_mult_prev = nf_mult
             nf_mult = min(2 ** n, 8)
             sequence += [
@@ -229,6 +264,89 @@ class NLayerDiscriminator(nn.Module):
         #return self.model(x)
         return torch.mean(self.model(x), dim=(1,2,3))
 
+class UnetSkipConnectionBlock3D(nn.Module):
+    """
+    Defines the Unet submodule with skip connection.
+    X -------------------identity----------------------
+    |-- downsampling -- |submodule| -- upsampling --|
+    """
+    def __init__(self, outer_nc, inner_nc, input_nc=None, submodule=None, outermost=False, innermost=False, norm_layer=nn.InstanceNorm3d, dropout=0, last_activation=nn.Sigmoid()): #nn.Tanh()):
+        super().__init__()
+
+        #padw = "same" #padding="same" is not supported for strided convolutions
+        kw = 4 # needs to be 3 for Upsample + Conv3d 
+        padw = 1 
+        self.outermost = outermost
+
+        if input_nc is None:
+            input_nc = outer_nc
+        downconv = nn.Conv3d(input_nc, inner_nc, kernel_size=kw, stride=2, padding=padw, bias=True)
+        downrelu = nn.LeakyReLU(0.2, True)
+        downnorm = norm_layer(inner_nc) 
+        uprelu = nn.ReLU(True)
+        upnorm = norm_layer(outer_nc)
+
+        if outermost:
+            upconv = nn.ConvTranspose3d(inner_nc * 2, outer_nc, kernel_size=kw, stride=2, padding=padw)
+            down = [downconv]
+            up = [uprelu, upconv, last_activation]
+            model = down + [submodule] + up
+        elif innermost:
+            upconv = nn.ConvTranspose3d(inner_nc, outer_nc, kernel_size=kw, stride=2, padding=padw, bias=True)
+            down = [downrelu, downconv]
+            up = [uprelu, upconv, upnorm]
+            model = down + up
+        else:
+            upconv = nn.ConvTranspose3d(inner_nc * 2, outer_nc, kernel_size=kw, stride=2, padding=padw, bias=True)
+            down = [downrelu, downconv, downnorm]
+            up = [uprelu, upconv, upnorm]
+
+            if dropout > 0:
+                model = down + [submodule] + up + [nn.Dropout(dropout)]
+            else:
+                model = down + [submodule] + up
+
+        self.model = nn.Sequential(*model)
+
+    def forward(self, x):
+        if self.outermost:
+            return self.model(x)
+        else:   # add skip connections
+            return torch.cat([x, self.model(x)], 1)
+
+
+class NLayerDiscriminator3D(nn.Module):
+
+    def __init__(self, input_nc, ndf=64, n_layers=5, drop_first=0.0):
+        super().__init__()
+
+        #padw = "same" is not supported for strided convolutions
+        kw = 4
+        padw = 1
+        sequence = [nn.Conv3d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
+
+        nf_mult = 1
+        nf_mult_prev = 1
+        for n in range(1, n_layers):  # gradually increase the number of filters
+            nf_mult_prev = nf_mult
+            nf_mult = min(2 ** n, 8)
+            sequence += [
+                nn.Conv3d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=2, padding=padw, bias=True),
+                nn.BatchNorm3d(ndf * nf_mult),
+                nn.LeakyReLU(0.2, True)
+            ]
+
+        sequence += [nn.Conv3d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]  # output 1 channel prediction map 
+        # This last layer is different from the original pix2pix, where they use flatten + linear
+        # Note Sigmoid function for vanilla GAN is included in the loss fuction BCEWithLogitsLoss.
+        
+        self.model = nn.Sequential(*sequence)
+
+    def forward(self, x):
+        """Standard forward."""
+        # Instead of returning self.model(x), take mean over the spatial dimensions to avoid nan loss.
+        return torch.mean(self.model(x), dim=(1,2,3,4)) 
+
 
 class Pix2Pix(BaseModel):
 
@@ -236,9 +354,17 @@ class Pix2Pix(BaseModel):
         BaseModel.__init__(self, opt)
 
         self.gan_mode = opt.gan_mode
+        self.model = opt.model
+        self.lambda_L1 = opt.lambda_L1
        
-        self.loss_names = [ "G_GAN", "G_L1", "D_real", "D_fake" ]
-        self.visual_names = [ "real_A", "fake_B", "real_B"]
+        self.loss_names = [ "G_GAN", "G_L1", "D_real", "D_fake",  ]
+        self.visual_names = [ "real_A", "real_B", "fake_B"]
+
+        self.input_noise = opt.input_noise
+        
+        self.lambda_z = opt.lambda_z
+        if opt.lambda_z > 0:
+            self.loss_names.append("G_z")
 
         if self.isTrain:
             self.model_names = [ "G", "D" ]
@@ -263,7 +389,14 @@ class Pix2Pix(BaseModel):
         self.real_B = input[1 if AtoB else 'A'].to(self.device)
 
     def forward(self):
-        self.fake_B = self.netG(self.real_A) 
+        if self.input_noise:
+            spatial_size = self.real_A.shape[2:]
+            self.noise = torch.randn(self.real_A.shape[0], 1, *spatial_size).to(self.device)
+            net_input = torch.cat((self.real_A, self.noise), dim=1)    
+        else:
+            net_input = self.real_A        
+
+        self.fake_B = self.netG(net_input) 
  
     def backward_D(self):
 
@@ -283,13 +416,27 @@ class Pix2Pix(BaseModel):
                 p.data.clamp_(-0.01,0.01)
 
     def backward_G(self):
+
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         
-        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.lambda_L1
         
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
+
+        if self.lambda_z > 0:
+            noise1 = torch.randn(self.real_A.shape[0], 1, *self.real_A.shape[2:]).to(self.device)
+            noise2 = torch.randn(self.real_A.shape[0], 1, *self.real_A.shape[2:]).to(self.device)
+            net_input1 = torch.cat((self.real_A, noise1), dim=1)
+            net_input2 = torch.cat((self.real_A, noise2), dim=1)
+            fake1 = self.netG(net_input1)
+            fake2 = self.netG(net_input2)
+            diff_z = (noise1 - noise2).view(fake1.shape[0], -1) + 1e-8
+            diff_G = (fake1 - fake2).view(fake1.shape[0], -1) + 1e-8
+            self.loss_G_z = torch.mean( (torch.norm(diff_G, dim=1)) / (torch.norm(diff_z, dim=1)) )
+            self.loss_G -= self.loss_G_z * self.lambda_z
+
         self.loss_G.backward()
 
     def optimize_parameters(self):
@@ -308,7 +455,22 @@ class Pix2Pix(BaseModel):
     def save_test_image(self, opt, fid, overwrite=False):
         with torch.no_grad():
             self.forward()
-            for iout in range(opt.output_nc):
+            for iout in range(len(opt.target_id)):
                 fname = "{}_{:d}.fits".format(fid, iout)
-                save_image(self.fake_B[0][iout], fname, opt.norm, overwrite=overwrite)
+                save_image(self.fake_B[0][iout], fname, 1., overwrite=overwrite)
       
+class Vox2Vox(Pix2Pix):
+
+    def __init__(self, opt):
+        Pix2Pix.__init__(self, opt)
+
+        self.optimizers = []
+
+        self.netG = define_G3D(opt, gpu_ids=self.gpu_ids)
+        if self.isTrain:
+            self.netD = define_D3D(opt, gpu_ids=self.gpu_ids)
+
+            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr*2, betas=(opt.beta1, 0.999))
+            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizers.append(self.optimizer_G)
+            self.optimizers.append(self.optimizer_D)
