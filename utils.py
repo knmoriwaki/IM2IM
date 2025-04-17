@@ -90,12 +90,12 @@ def load_Lya_data(data_dir, ndata=10000, npix_patch=[16,16,16], n_feature_in=1, 
     
     dm_file = "{}/DM_dens_HnoAGN_realspace_128x128x1024.dat".format(data_dir)
     DM_dens = read_mock3d(dm_file)
-    DM_dens = np.log10( DM_dens )
+    #DM_dens = np.log10( DM_dens )
 
     if n_feature_in == 2:
         dm_vdisp_file="{}/DM_Vsig_HnoAGN_realspace_128x128x1024.dat".format(data_dir)
         DM_vdisp=read_mock3d(dm_vdisp_file)
-        DM_vdisp = np.log10( DM_vdisp )
+        #DM_vdisp = np.log10( DM_vdisp )
         
         DM_input = np.stack([DM_dens, DM_vdisp], axis=0) #(2, dimx, dimy, dimz)
     else:
@@ -105,11 +105,11 @@ def load_Lya_data(data_dir, ndata=10000, npix_patch=[16,16,16], n_feature_in=1, 
     Flux=read_mock3d(flux_file)
     Flux = Flux[np.newaxis,:,:,:] #(1, dimx, dimy, dimz)
 
-    Flux = np.log10( 1. - Flux )
+    #Flux = np.log10( 1. - Flux )
 
     ### Remove FGPA prediction
-    #factor = 0.30
-    #beta = 0.93
+    factor = 0.30
+    beta = 0.93
     #Flux -= np.exp(- factor * DM_dens ** beta)
 
     ### pick up patches of size (npix_patch, npix_patch, npix_patch)
