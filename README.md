@@ -4,11 +4,9 @@ cGAN model based on pix2pix [(Isola et al. 2016)](https://github.com/eriklindern
 
 ## Requirement
 
-- Python 3.8+
-
 Install the following libraries with `pip`.
-- torch==1.12.0
-- torchvision==0.13.0
+- torch
+- torchvision
 - torchinfo
 - tqdm
 - astropy
