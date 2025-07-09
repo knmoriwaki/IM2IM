@@ -11,20 +11,17 @@ import astropy.io.fits as fits
 
 from tqdm import tqdm
 
-def load_fits_image(fnames, norm=1.0, device="cuda:0"):
-
+def load_fits_image(fname_list, norm=1.0):
     data_list = []
-    for fname in fnames:
+    for fname in fname_list:
         with fits.open(fname) as hdul:
             img = hdul[0].data / norm
-        size = img.shape
-        img = img.reshape(1, 1, size[0], size[1])
         data_list.append(img)
-    data_all = np.concatenate(data_list, axis=0)
-    data_all = torch.from_numpy( np.array(data_all).astype(np.float32) )
-    if device is not None:
-        data_all = data_all.to(device)
+
+    data_all = np.array(data_list)
+    data_all = torch.from_numpy( np.array(data_all).astype(np.float32) ) 
     return data_all 
+    # data_all: (N, Nx, Ny) or (N, Nx, Ny, Nz)
 
 def save_image(image, path, norm, overwrite=False):
     img = image.to('cpu').detach().numpy().copy()
